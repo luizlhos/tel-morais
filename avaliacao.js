@@ -13,8 +13,8 @@
   /* ---------- configuração (ajuste aqui) ---------- */
   const CFG = {
     BRAND: 'Treino',                 // nome mostrado no formulário e no termo
-    CONTROLLER: 'Luiz Santos',                // quem responde pelos dados (nome/empresa). Vazio = "o profissional responsável"
-    CONTACT: 'luiz.lhos@gmail.com',                   // e-mail/WhatsApp para pedidos de privacidade (LGPD). Mostrado no termo se preenchido
+    CONTROLLER: 'Tel Morais',                // quem responde pelos dados (nome/empresa). Vazio = "o profissional responsável"
+    CONTACT: 'tel.henrique@hotmail.com',                   // e-mail/WhatsApp para pedidos de privacidade (LGPD). Mostrado no termo se preenchido
     FN: 'public-intake',             // Edge Function pública
     BUCKET: 'assessment-photos',
     CONSENT_VERSION: 'v1-2026-11',   // mude ao alterar o texto do termo
