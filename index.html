@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#05070d">
+<meta name="theme-color" content="#08090b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -168,6 +168,19 @@ html[data-theme=light] .sw input[type=checkbox]::after{box-shadow:0 1px 3px rgba
 html[data-theme=light] .logo svg{stroke:#fff}
 html[data-theme=light] .ch [stroke="#22304d"]{stroke:var(--s3)}html[data-theme=light] .ch [fill="#8e9ab3"]{fill:var(--mu)}html[data-theme=light] .ch [stroke="#8e9ab3"]{stroke:var(--mu)}
 html[data-theme=light] .ch [stroke="#1f6bff"]{stroke:var(--ac)}html[data-theme=light] .ch [fill="#1f6bff"]{fill:var(--ac)}html[data-theme=light] .ch [stroke="#05070d"]{stroke:var(--s1)}
+/* ---------- tema Tel Morais (cores da logo TM: grafite/aço + azul royal) ---------- */
+:root{--bg:#08090b;--s1:#121417;--s2:#1a1d21;--s3:#2c3036;--tx:#eef0f3;--mu:#979ca6;--ac:#0b4df5;--ac2:#6d9dff;--acu:#6d9dff;--glow:0 0 0 1px rgba(11,77,245,.6),0 8px 24px rgba(11,77,245,.3)}
+body{background:radial-gradient(130% 420px at 105% -60px,rgba(11,77,245,.2),rgba(11,77,245,0) 70%) no-repeat,var(--bg)}
+.hero{background:linear-gradient(140deg,#16213c,#121417 62%);border:1px solid #2a3a66}
+.card{border-color:#24272c}
+.tm-logo{display:block;width:128px;height:128px;margin:0 auto;border-radius:50%;box-shadow:0 0 0 1px rgba(255,255,255,.06),0 10px 34px rgba(11,77,245,.35)}
+.login>h1:first-of-type{font-size:52px}
+.ch [stroke="#22304d"]{stroke:var(--s3)}.ch [fill="#8e9ab3"]{fill:var(--mu)}.ch [stroke="#8e9ab3"]{stroke:var(--mu)}.ch [stroke="#1f6bff"]{stroke:var(--ac)}.ch [fill="#1f6bff"]{fill:var(--ac)}.ch [stroke="#05070d"]{stroke:var(--s1)}
+html[data-theme=light]{--bg:#eceef1;--s1:#ffffff;--s2:#e2e5ea;--s3:#c8cdd5;--tx:#11131a;--mu:#5a606b;--ac:#0a3fd8;--ac2:#0a3fd8;--acu:#0a3fd8}
+html[data-theme=light] body{background:radial-gradient(130% 420px at 105% -60px,rgba(10,63,216,.1),rgba(10,63,216,0) 70%) no-repeat,var(--bg)}
+html[data-theme=light] .hero{background:linear-gradient(140deg,#e0e6f3,#ffffff 62%);border:1px solid #c5cde0}
+html[data-theme=light] .card{border-color:#d6dae0}
+html[data-theme=light] .tm-logo{box-shadow:0 0 0 1px rgba(0,0,0,.06),0 10px 28px rgba(10,63,216,.22)}
 </style>
 </head>
 <body>
@@ -527,7 +540,7 @@ function sessionsFromRaw(t,p){if(!t)return[];
     it.sets=sets;it.reps=reps;it.restSec=rest;it.rest=rest>=120?(rest/60)+' min':rest+' s';it.rir=it.kind==='time'||c.cat==='Core'?'':'RIR 2';return it}})}))}
 
 "use strict";
-const APP_VERSION='1.0.0';
+const APP_VERSION='1.1.0';
 /* ---------- tema (preferência do aparelho) ---------- */
 const THEME_KEY='telm.theme';const MQ_DARK=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
 function themePref(){try{return localStorage.getItem(THEME_KEY)||'dark'}catch(e){return'dark'}}
@@ -1522,7 +1535,7 @@ setInterval(()=>{if(!document.hidden)sync()},120e3);
 
 /* ---------- login ---------- */
 function viewLogin(){const last=localStorage.getItem('telm.lastEmail')||'';
-  return`<div class="login"><div class="logo"><svg viewBox="0 0 24 24"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/></svg></div><h1>Treino</h1><div class="brand2">&amp; Dieta 70</div><p class="mu">Entre com o usuário criado pelo administrador.</p>
+  return`<div class="login"><img class="tm-logo" src="icons/logo-tm.png" alt="Tel Morais" width="128" height="128"><h1>Tel Morais</h1><div class="brand2">Personal Trainer</div><p class="mu">Entre com o usuário criado pelo administrador.</p>
    <label class="f"><span>E-mail</span><input id="lgEmail" type="email" autocomplete="username" autocapitalize="off" value="${esc(last)}"></label>
    <label class="f"><span>Senha</span><input id="lgPass" type="password" autocomplete="current-password"></label>
    <div id="lgMsg" class="sm" style="color:var(--bad);min-height:20px"></div>
