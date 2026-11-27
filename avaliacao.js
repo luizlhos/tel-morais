@@ -743,7 +743,7 @@ html[data-theme=light] .av-q{box-shadow:0 1px 2px rgba(16,24,40,.06)}
   }
 
   AV.mine = () => (ME && SB ? loadList('mine', ME.id) : null);
-  AV.install = install; AV.takeover = takeover; AV.analyze = analyze; AV.SECTIONS = SECTIONS; AV.PARQ = PARQ; AV.collect = collect;
+  AV.CFG = CFG; AV.install = install; AV.takeover = takeover; AV.analyze = analyze; AV.SECTIONS = SECTIONS; AV.PARQ = PARQ; AV.collect = collect;
   if (typeof window !== 'undefined') window.AV = AV;
   if (typeof module !== 'undefined' && module.exports) module.exports = AV;
 })();

@@ -558,7 +558,7 @@ function sessionsFromRaw(t,p){if(!t)return[];
     it.sets=sets;it.reps=reps;it.restSec=rest;it.rest=rest>=120?(rest/60)+' min':rest+' s';it.rir=it.kind==='time'||c.cat==='Core'?'':'RIR 2';return it}})}))}
 
 "use strict";
-const APP_VERSION='1.6.0';
+const APP_VERSION='1.7.0';
 /* ---------- tema (preferência do aparelho) ---------- */
 const THEME_KEY='telm.theme';const MQ_DARK=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
 function themePref(){try{return localStorage.getItem(THEME_KEY)||'dark'}catch(e){return'dark'}}
@@ -792,7 +792,7 @@ const V={tab:'hoje',stack:[]};
 function go(view,params){V.stack.push({view,params:params||{}});render();scrollTo(0,0)}
 function topV(){return V.stack[V.stack.length-1]}
 function setCtx(){const t=topV(),u=t&&t.params&&t.params.uid;if(u==='__tpl'&&ME&&ME.role==='master'){tplPlans();CTX={lib:TPL.lib,uid:u,tpl:true};return}CTX=(u&&MANAGE&&MANAGE.uid===u)?{lib:MANAGE.lib,uid:u}:{lib:null,uid:''}}
-function render(){const pv=window.AV&&AV.takeover();if(pv){$('#app').innerHTML=pv;return}if(ME&&SB&&ME.active!==false){try{bodyFromAv()}catch(e){}}document.body.classList.toggle('nologin',!ME);if(!ME){$('#app').innerHTML=viewLogin();return}if(ME.active===false){$('#app').innerHTML=viewDisabled();return}
+function render(){const pv=window.AV&&AV.takeover();if(pv){$('#app').innerHTML=pv;return}if(ME&&SB&&ME.active!==false){try{bodyFromAv()}catch(e){}try{cadHook()}catch(e){}}document.body.classList.toggle('nologin',!ME);if(!ME){$('#app').innerHTML=viewLogin();return}if(ME.active===false){$('#app').innerHTML=viewDisabled();return}
   setCtx();const t=topV();let h;try{h=t?VIEWS[t.view](t.params):VIEWS[V.tab]()}catch(e){console.error(e);h=`<div class="card">Erro: ${esc(e.message)}</div>`}
   $('#app').innerHTML=h;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===V.tab))}
 const VIEWS={},ACT={};
@@ -1371,14 +1371,15 @@ VIEWS.log=function({id}){const L=S.logs.find(l=>l.id===id);if(!L)return hdr('Reg
 VIEWS.ajustes=function(){const st=S.settings,p=myActive();
   let h=hdr('Perfil',esc(ME.name||'')+' · versão '+APP_VERSION,false,syncBadge());
   const mi=(act,ic,t,d,x='')=>`<div class="li tap" data-act="${act}" ${x}><span class="kd">${ic}</span><div class="t"><b>${t}</b><span class="mu sm">${d}</span></div><span class="mu">›</span></div>`;
-  h+=`<div class="card" style="padding:4px 14px">${mi('go','📋','Planos de treino','Em andamento, próximos e finalizados','data-v="planos"')}${ME.role==='master'?mi('openUsers','👥','Gerenciar usuários','Clientes, planos, avaliações e acessos')+mi('go','🧩','Modelos de treino','Editar os treinos prontos do app','data-v="modelos"'):''}${metOn(S&&S.lib)||ME.role==='master'?mi('go','⚡','Métodos de treino','Drop set, rest-pause, cluster e outros','data-v="metodos"'):''}${mi('go','❓','Ajuda','Como usar cada parte do app','data-v="ajuda"')}</div>`;
+  h+=`<div class="card" style="padding:4px 14px">${mi('go','📋','Planos de treino','Em andamento, próximos e finalizados','data-v="planos"')}${ME.role==='master'?mi('openUsers','👥','Alunos','Cadastro, planos, avaliações e acessos')+mi('go','🧩','Modelos de treino','Editar os treinos prontos do app','data-v="modelos"'):''}${metOn(S&&S.lib)||ME.role==='master'?mi('go','⚡','Métodos de treino','Drop set, rest-pause, cluster e outros','data-v="metodos"'):''}${mi('go','❓','Ajuda','Como usar cada parte do app','data-v="ajuda"')}</div>`;
   h+=`<div class="card"><div class="sw"><span>Sempre mostrar opções avançadas<div class="mu xs">Mostra fases, RIR e progressão de cargas abertas nos planos. Deixe desligado para uma visão mais simples.</div></span><input type="checkbox" data-sf="adv" ${st.adv?'checked':''}></div></div>`;
   {const tp=themePref();h+=`<h3>Aparência</h3><div class="seg">${[['dark','🌙 Escuro'],['light','☀️ Claro'],['auto','📱 Automático']].map(([k,l])=>`<button class="${tp===k?'on':''}" data-act="setTheme" data-t="${k}">${l}</button>`).join('')}</div><p class="mu xs" style="margin:6px 2px 0">Automático segue o modo claro/escuro do iPhone. Vale só para este aparelho.</p>`}
   if(p){const w=progOf(p).week,N=weeksOf(p);h+=`<h3>Plano ativo</h3><div class="card"><div class="b">${esc(p.name)}</div><p class="sm mu">A semana avança sozinha quando você completa todos os treinos. Use os botões só para corrigir.</p>
     <div class="row"><button class="btn smb" data-act="shiftWeek" data-d="-1">◀ Voltar</button><div class="sp" style="text-align:center"><b>Semana ${Math.min(w,N+1)}</b><div class="mu xs">${w<=N?esc(phaseAt(p,w).name):'concluído'}</div></div><button class="btn smb" data-act="shiftWeek" data-d="1">Avançar ▶</button></div></div>`}
+  if(ME.role!=='master')h+=myInfoCard();
   {const B=bodyOf(),r=bmrOf(B);h+=`<h3>Meus dados</h3><div class="card"><label class="f" style="margin-top:0"><span>Nome de exibição</span><input id="bfName" maxlength="80" autocomplete="name" value="${esc(ME.name||'')}" placeholder="Seu nome"></label><div class="grid2"><label class="f" style="margin-top:0"><span>Sexo</span>${sel('',[['','—'],['M','Masculino'],['F','Feminino']],B.sex,'id="bfSex"')}</label><label class="f" style="margin-top:0"><span>Nascimento (DD/MM/AAAA)</span><input id="bfBirth" data-mask="date" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" value="${esc(isoToBR(B.birth))}" autocomplete="bday"></label></div>
     <div class="grid2"><label class="f"><span>Altura (cm)</span><input id="bfHeight" inputmode="numeric" maxlength="3" value="${B.height??''}" placeholder="ex: 175"></label><label class="f"><span>Peso atual (kg)</span><button class="btn block" data-act="addWeight" style="padding:10px">${weightAt(B)?fnum(weightAt(B),1)+' kg · atualizar':'Registrar'}</button></label></div>
-    <button class="btn pri block" data-act="saveBody" style="margin-top:4px">Salvar meus dados</button><div class="mu xs" style="margin-top:6px">Sexo, nascimento, altura e peso vêm da sua avaliação quando estiverem vazios.</div>
+    <button class="btn pri block" data-act="saveBody" style="margin-top:4px">Salvar meus dados</button><div class="mu xs" style="margin-top:6px">Sexo, nascimento, altura e peso vêm do seu cadastro ou da sua avaliação quando estiverem vazios.</div>
     <div class="sm" style="margin-top:10px">${r?`Metabolismo basal estimado: <b>${Math.round(r).toLocaleString('pt-BR')} kcal/dia</b>`:'<span class="mu">Preencha sexo, nascimento, altura e peso para calcular o metabolismo e o gasto dos treinos.</span>'}</div>
     <div class="mu xs" style="margin-top:6px">${ME.role==='master'?'Usado para estimar o gasto calórico dos treinos.':'Usado para estimar o gasto calórico dos treinos. Visível para você e para o administrador do app.'} O peso é salvo ao tocar em "Salvar" na janela de registro.</div></div>`}
   h+=`<h3>Durante o treino</h3><p class="mu xs" style="margin:-4px 0 6px">Estas opções são salvas automaticamente ao tocar.</p><div class="card" style="padding:4px 14px"><div class="sw"><span>Som ao fim do descanso</span><input type="checkbox" data-sf="sound" ${st.sound?'checked':''}></div><div class="sw"><span>Aviso faltando 5 segundos</span><input type="checkbox" data-sf="warn5" ${st.warn5!==false?'checked':''}></div><div class="sw"><span>Manter tela ligada</span><input type="checkbox" data-sf="wake" ${st.wake?'checked':''}></div>
@@ -1701,20 +1702,30 @@ async function openManage(u){if(!navigator.onLine){toast('Precisa de internet');
   MANAGE={uid:u.id,name:u.name,lib:libFrom(data&&data.program)||emptyLib(),dirty:false};go('planos',{uid:u.id})}
 /* ---------- painel master ---------- */
 async function loadUsers(){if(!navigator.onLine){USERS={err:'Sem internet'};render();return}
-  const{data,error}=await SB.rpc('admin_list_users');USERS=error?{err:friendlyErr(error)}:{list:data};const top=V.stack[V.stack.length-1];if(top&&(top.view==='users'||top.view==='user'))render()}
+  const[r1,r2]=await Promise.all([SB.rpc('admin_list_users'),SB.from('client_info').select('*')]);
+  if(r1.error)USERS={err:friendlyErr(r1.error)};else{const m={};if(!r2.error)(r2.data||[]).forEach(x=>m[x.user_id]=x);USERS={list:r1.data.map(u=>Object.assign(u,{info:m[u.id]||null})),infoErr:r2.error?friendlyErr(r2.error):null}}
+  const top=V.stack[V.stack.length-1];if(top&&(top.view==='users'||top.view==='user'))render()}
 function rel(ts){if(!ts)return'nunca';const d=(Date.now()-Date.parse(ts))/864e5;return d<1?'hoje':d<2?'ontem':Math.floor(d)+' dias atrás'}
-VIEWS.users=function(){if(!USERS){loadUsers();return hdr('Usuários','',true)+'<div class="empty">Carregando…</div>'}
-  let h=hdr('Usuários',USERS.list?USERS.list.length+' conta(s)':'',true,'<button class="btn smb" data-act="reloadUsers">↻</button>');
+VIEWS.users=function(){if(!USERS){loadUsers();return hdr('Alunos','',true)+'<div class="empty">Carregando…</div>'}
+  const L=USERS.list||[],studs=L.filter(u=>u.role!=='master');
+  let h=hdr('Alunos',USERS.list?studs.length+' aluno(s)':'',true,'<button class="btn smb" data-act="reloadUsers">↻</button>');
   if(USERS.err)return h+`<div class="card" style="color:var(--bad)">${esc(USERS.err)}</div>`;
-  h+=`<button class="btn pri block" data-act="newUser">+ Novo usuário</button><div class="card" style="padding:4px 14px;margin-top:12px">${USERS.list.map(u=>`<div class="li tap" data-act="go" data-v="user" data-id="${u.id}"><span class="pill" style="min-width:12px;background:${u.active?'var(--ok)':'var(--s3)'};padding:5px"></span><div class="t"><b>${esc(u.name)}${u.role==='master'?' · master':''}</b><span class="mu sm">${u.workouts} treino(s) · último: ${u.last_workout?dshort(String(u.last_workout)):'—'} · visto ${rel(u.last_seen_at)}${u.active?'':' · <span style="color:var(--bad)">desativado</span>'}</span></div><span class="mu">›</span></div>`).join('')}</div>`;
+  if(USERS.infoErr)h+=`<div class="card sm" style="color:var(--bad)">Dados de cadastro indisponíveis: ${esc(USERS.infoErr)}</div>`;
+  const cnt=k=>studs.filter(u=>uStatus(u)===k).length,gs=groupsOf();
+  h+=`<button class="btn pri block" data-act="newUser">+ Novo aluno</button>
+    <input id="uSearch" type="search" placeholder="🔎 Buscar por nome" autocomplete="off" value="${esc(UF.q)}" style="margin-top:12px">
+    <div class="grid2" style="margin-top:8px">${sel('',[['','Todas'],...STS.map(([k,l])=>[k,`${l} (${cnt(k)})`])],UF.st,'id="uSt" aria-label="Situação"')}${sel('',[['','Todos os grupos'],...gs.map(g=>[g,g])],UF.g,'id="uGrp" aria-label="Grupo"')}</div>`;
+  const q=normTxt(UF.q),vis=L.filter(u=>(u.role==='master'?!UF.st&&!UF.g:(!UF.st||uStatus(u)===UF.st)&&(!UF.g||(u.info&&u.info.goal_group)===UF.g))&&(!q||normTxt(u.name).includes(q)));
+  h+=vis.length?`<div class="card" id="uList" style="padding:4px 14px;margin-top:12px">${vis.map(userRow).join('')}</div>`:'<div class="empty">Nenhum aluno com esses filtros.</div>';
   return h};
 VIEWS.user=function({id}){const u=USERS&&USERS.list&&USERS.list.find(x=>x.id===id);if(!u){loadUsers();return hdr('Usuário','',true)+'<div class="empty">Carregando…</div>'}
   const me=u.id===ME.id;
   let h=hdr(u.name,esc(u.email),true);
   h+=`<div class="stat"><div><b>${u.workouts}</b><span>treinos</span></div><div><b>${u.last_workout?dshort(String(u.last_workout)):'—'}</b><span>último treino</span></div><div><b style="font-size:15px">${rel(u.last_seen_at)}</b><span>visto no app</span></div></div>`;
   if(!UB[id]){UB[id]={loading:true};SB.from('user_docs').select('state').eq('user_id',id).maybeSingle().then(({data})=>{UB[id]=(data&&data.state&&data.state.body)||{};const t=topV();if(t&&(t.view==='user'||t.view==='uhist')&&t.params.id===id)render()})}
+  if(u.role!=='master')h+=infoCard(u)+notesCard(u);
   const UBd=UB[id];if(UBd&&!UBd.loading)h+=`<h3>Perfil corporal</h3><div class="card">${(UBd.weights&&UBd.weights.length)||UBd.height?bodySummary(UBd)+(weightsSorted(UBd).length>1?'<div style="height:8px"></div>'+weightChart(UBd):''):'<div class="mu sm">Ainda não preenchido por ele.</div>'}</div>`;
-  h+=`<div class="card"><div class="row"><span class="sp">Status</span><b style="color:${u.active?'var(--ok)':'var(--bad)'}">${u.active?'Ativo':'Desativado'}</b></div><div class="row" style="margin-top:6px"><span class="sp">Planos</span><b>${u.has_program?'sim':'nenhum ainda'}</b></div><div class="row" style="margin-top:6px"><span class="sp">Criado em</span><span>${new Date(u.created_at).toLocaleDateString('pt-BR')}</span></div></div>`;
+  h+=`<div class="card"><div class="row"><span class="sp">Acesso ao app</span><b style="color:${u.active?'var(--ok)':'var(--bad)'}">${u.active?'Liberado':'Desativado'}</b></div><div class="row" style="margin-top:6px"><span class="sp">Planos</span><b>${u.has_program?'sim':'nenhum ainda'}</b></div><div class="row" style="margin-top:6px"><span class="sp">Criado em</span><span>${new Date(u.created_at).toLocaleDateString('pt-BR')}</span></div></div>`;
   if(!me)h+=`<button class="btn pri block" data-act="manageProg" data-id="${u.id}">Ver / montar planos</button><div style="height:8px"></div>
     ${myActive()?`<button class="btn block" data-act="copyProg" data-id="${u.id}">Enviar uma cópia do meu plano ativo</button><div style="height:8px"></div>`:''}
     <button class="btn block" data-act="avOpenUser" data-id="${u.id}">📋 Questionário do cliente</button><div style="height:8px"></div>
@@ -1745,15 +1756,103 @@ Object.assign(ACT,{
       const{data,error}=await SB.from('user_docs').select('program').eq('user_id',u.id).maybeSingle();if(error)throw new Error(friendlyErr(error));const lib=libFrom(data&&data.program)||emptyLib();
       const c=clone(mine);c.id=uid36('p');c.tips=[];c.nutrition=[];c.created=Date.now();lib.plans.push(c);lib.activeId=c.id;
       const{error:e2}=await SB.from('user_docs').update({program:lib,program_edited:Date.now()}).eq('user_id',u.id);if(e2)throw new Error(friendlyErr(e2));toast('Plano enviado');USERS=null;render()}))},
-  newUser:()=>{const pw=genPass();modal('Novo usuário',`<label class="f"><span>Nome</span><input id="nuName"></label><label class="f"><span>E-mail (será o login)</span><input id="nuEmail" type="email" autocapitalize="off"></label><label class="f"><span>Senha inicial</span><input id="nuPass" value="${pw}"></label><p class="mu sm">Anote a senha e passe para a pessoa. Mínimo 8 caracteres.</p>`,
-    [{label:'Cancelar'},{label:'Criar',cls:'pri',keep:true,fn:busy(async()=>{const name=$('#nuName').value.trim(),email=$('#nuEmail').value.trim(),password=$('#nuPass').value;const r=await adminCall({action:'create',name,email,password});$('#modal').hidden=true;
-      modal('Usuário criado ✓',`<p>Envie para <b>${esc(name)}</b>:</p><div class="card" style="user-select:all">Link: ${esc(location.origin+location.pathname)}<br>E-mail: ${esc(email)}<br>Senha: ${esc(password)}</div>`,[{label:'Fechar'},{label:'Montar plano',cls:'pri',fn:busy(async()=>{await loadUsers();const u=USERS.list.find(x=>x.id===r.id);if(u)openManage(u)})}]);USERS=null;render()})}])},
+  newUser:()=>{const pw=genPass();modal('Novo aluno',`<label class="f"><span>Nome</span><input id="nuName" maxlength="80" autocomplete="off"></label><label class="f"><span>E-mail (será o login)</span><input id="nuEmail" type="email" autocapitalize="off" autocomplete="off"></label><label class="f"><span>Senha inicial</span><input id="nuPass" value="${pw}"></label><p class="mu sm">Mínimo 8 caracteres. Você poderá enviar o acesso pelo WhatsApp no próximo passo.</p><h3 style="margin-top:14px">Dados do aluno <span class="mu sm">(opcional)</span></h3>${infoForm(null,false)}`,
+    [{label:'Cancelar'},{label:'Criar',cls:'pri',keep:true,fn:busy(async()=>{const name=$('#nuName').value.trim(),email=$('#nuEmail').value.trim().toLowerCase(),password=$('#nuPass').value;
+      if(!name||!email){toast('Informe nome e e-mail');return}const info=readInfoForm();
+      const r=await adminCall({action:'create',name,email,password});let warn='';
+      const{error:ie}=await SB.from('client_info').upsert(Object.assign({user_id:r.id,updated_by:ME.id,updated_at:new Date().toISOString()},info));if(ie)warn=friendlyErr(ie);
+      $('#modal').hidden=true;USERS=null;render();createdModal({id:r.id,name,email,password,phone:info.phone,warn})})}])},
   pwUser:d=>{const u=USERS.list.find(x=>x.id===d.id);modal('Redefinir senha',`<p>Nova senha para <b>${esc(u.name)}</b>:</p><input id="npPass" value="${genPass()}">`,[{label:'Cancelar'},{label:'Salvar',cls:'pri',keep:true,fn:busy(async()=>{const pw=$('#npPass').value;await adminCall({action:'set_password',user_id:u.id,password:pw});$('#modal').hidden=true;toast('Senha alterada')})}])},
   renameUser:d=>{const u=USERS.list.find(x=>x.id===d.id);modal('Alterar nome',`<input id="rnName" value="${esc(u.name)}">`,[{label:'Cancelar'},{label:'Salvar',cls:'pri',keep:true,fn:busy(async()=>{await adminCall({action:'rename',user_id:u.id,name:$('#rnName').value});$('#modal').hidden=true;USERS=null;toast('Nome alterado');render()})}])},
   toggleUser:d=>{const u=USERS.list.find(x=>x.id===d.id);const act=!u.active;
-    confirmBox(act?'Reativar usuário':'Desativar usuário',act?`<b>${esc(u.name)}</b> volta a ter acesso, com todo o histórico.`:`<b>${esc(u.name)}</b> perde o acesso imediatamente (não consegue mais entrar nem sincronizar). Os dados dele <b>não</b> são apagados e voltam se você reativar.`,act?'Reativar':'Desativar',busy(async()=>{await adminCall({action:'set_active',user_id:u.id,active:act});USERS=null;toast(act?'Reativado':'Desativado');render()}),!act)},
+    confirmBox(act?'Reativar usuário':'Desativar usuário',act?`<b>${esc(u.name)}</b> volta a ter acesso, com todo o histórico.`:`<b>${esc(u.name)}</b> perde o acesso imediatamente (não consegue mais entrar nem sincronizar). Os dados dele <b>não</b> são apagados e voltam se você reativar.`,act?'Reativar':'Desativar',busy(async()=>{await adminCall({action:'set_active',user_id:u.id,active:act});if(u.role!=='master')await SB.from('client_info').upsert({user_id:u.id,status:act?'ativo':'encerrado',updated_by:ME.id,updated_at:new Date().toISOString()});USERS=null;toast(act?'Reativado':'Desativado');render()}),!act)},
 });
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&(e.target.id==='lgPass'||e.target.id==='lgEmail'))doLogin()});
+
+/* ---------- cadastro do aluno (v1.7.0) ---------- */
+const GENDERS=[['','—'],['M','Masculino'],['F','Feminino'],['O','Outro'],['N','Prefere não informar']],
+  MODS=[['','—'],['online','Online'],['presencial','Presencial'],['hibrido','Híbrido']],
+  STS=[['ativo','Ativo'],['pausado','Pausado'],['encerrado','Encerrado']],
+  STC={ativo:'var(--ok)',pausado:'var(--warn)',encerrado:'var(--s3)'};
+const UF={q:'',st:'',g:''},NOTES={};let MYINFO=null,WANT_AV=false;
+function lbl(L,v){const x=L.find(o=>o[0]===v);return x&&v?x[1]:''}
+function normTxt(s){return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim()}
+function normPhone(s){let d=String(s||'').replace(/\D/g,'');if(!d)return null;if(d.length===10||d.length===11)d='55'+d;return/^\d{12,13}$/.test(d)?d:false}
+function fmtPhone(d){d=String(d||'');const m=d.match(/^55(\d{2})(\d{4,5})(\d{4})$/);return m?`(${m[1]}) ${m[2]}-${m[3]}`:(d?'+'+d:'')}
+function waURL(phone,text){return`https://wa.me/${phone}${text?'?text='+encodeURIComponent(text):''}`}
+function appURL(){return location.origin+location.pathname}
+function firstName(n){return String(n||'').trim().split(/\s+/)[0]||''}
+function uStatus(u){return!u.active?'encerrado':(u.info&&u.info.status)||'ativo'}
+function groupsOf(){const g=new Set();((USERS&&USERS.list)||[]).forEach(u=>{if(u.info&&u.info.goal_group)g.add(u.info.goal_group)});return[...g].sort((a,b)=>a.localeCompare(b,'pt-BR'))}
+function msgAccess(name,email,password){return`Olá, ${firstName(name)}! Seu acesso ao app Tel Morais está pronto 💪\n\nLink: ${appURL()}\nE-mail: ${email}${password?'\nSenha: '+password:''}\n\nNo celular, abra o link e toque em "Adicionar à Tela de Início" para instalar o app.`}
+function msgAnam(name){return`Olá, ${firstName(name)}! Para eu montar o seu treino, preciso que você responda a sua avaliação no app:\n${appURL()}#avaliacao\n\nEntre com seu e-mail e senha e toque em "Responder agora". Leva uns 10 minutos.`}
+function userRow(u){const st=uStatus(u),i=u.info||{},m=u.role==='master';
+  const sub=[m?'master':'',i.goal_group,lbl(MODS,i.modality),`${u.workouts} treino(s)`,'último: '+(u.last_workout?dshort(String(u.last_workout)):'—'),'visto '+rel(u.last_seen_at)].filter(Boolean).map(esc).join(' · ');
+  return`<div class="li tap" data-act="go" data-v="user" data-id="${u.id}"><span class="pill" style="min-width:12px;background:${m?'var(--ac)':STC[st]};padding:5px"></span><div class="t"><b>${esc(u.name)}</b><span class="mu sm">${sub}${!m&&st!=='ativo'?` · <span style="color:${st==='encerrado'?'var(--bad)':'var(--warn)'}">${lbl(STS,st).toLowerCase()}</span>`:''}</span></div>${i.phone?`<button class="btn smb" data-act="openWa" data-u="${esc(waURL(i.phone))}" aria-label="WhatsApp de ${esc(u.name)}">💬</button>`:''}<span class="mu">›</span></div>`}
+/* formulário de dados do aluno (usado no "Novo aluno" e no "Editar") */
+function infoForm(i,withStatus){i=i||{};const gs=groupsOf();
+  return`<div class="grid2"><label class="f"><span>WhatsApp (DDD + número)</span><input id="ciPhone" type="tel" inputmode="tel" maxlength="20" placeholder="(81) 99999-0000" value="${esc(i.phone?fmtPhone(i.phone):'')}"></label><label class="f"><span>Nascimento (DD/MM/AAAA)</span><input id="ciBirth" inputmode="numeric" data-mask="date" maxlength="10" value="${esc(isoToBR(i.birth_date))}"></label></div>
+  <div class="grid2"><label class="f"><span>Gênero</span>${sel('',GENDERS,i.gender||'','id="ciGender"')}</label><label class="f"><span>Modalidade</span>${sel('',MODS,i.modality||'','id="ciMod"')}</label></div>
+  <div class="grid2"><label class="f"><span>Grupo / objetivo</span><input id="ciGroup" maxlength="40" list="ciGroups" placeholder="ex: Hipertrofia" value="${esc(i.goal_group||'')}"><datalist id="ciGroups">${['Hipertrofia','Emagrecimento','Condicionamento','Saúde',...gs].filter((v,k,a)=>a.indexOf(v)===k).map(g=>`<option value="${esc(g)}">`).join('')}</datalist></label><label class="f"><span>Início (DD/MM/AAAA)</span><input id="ciStart" inputmode="numeric" data-mask="date" maxlength="10" value="${esc(isoToBR(i.start_date||(withStatus?'':iso(new Date()))))}"></label></div>
+  ${withStatus?`<label class="f"><span>Situação</span>${sel('',STS,i.status||'ativo','id="ciStatus"')}</label><p class="mu xs" style="margin:4px 2px 0"><b>Pausado</b>: mantém o acesso, mas fica fora dos alertas e da cobrança. <b>Encerrado</b>: desativa o acesso ao app; o histórico é mantido.</p>`:''}`}
+function readInfoForm(){const v=id=>{const e=$('#'+id);return e?e.value.trim():''};
+  const phone=normPhone(v('ciPhone'));if(phone===false)throw new Error('WhatsApp inválido — use DDD + número, ex: (81) 99999-0000');
+  const bd=v('ciBirth'),birth=bd?brToISO(bd):null;if(bd&&!birth)throw new Error('Data de nascimento inválida (DD/MM/AAAA)');if(birth&&birth>iso(new Date()))throw new Error('Data de nascimento no futuro');
+  const sd=v('ciStart'),start=sd?brToISO(sd):null;if(sd&&!start)throw new Error('Data de início inválida (DD/MM/AAAA)');
+  const o={phone,birth_date:birth,gender:v('ciGender')||null,goal_group:v('ciGroup').slice(0,40)||null,modality:v('ciMod')||null,start_date:start};
+  if($('#ciStatus'))o.status=v('ciStatus');return o}
+/* cards da ficha do aluno (master) */
+function infoCard(u){const i=u.info,st=uStatus(u),r=(k,x)=>x?`<div class="row" style="margin-top:6px"><span class="sp">${k}</span><b>${x}</b></div>`:'';
+  let h=`<h3>Dados do aluno</h3><div class="card">`;
+  h+=`<div class="row"><span class="sp">Situação</span><b style="color:${st==='ativo'?'var(--ok)':st==='pausado'?'var(--warn)':'var(--bad)'}">${lbl(STS,st)}</b></div>`;
+  if(i){const a=i.birth_date?ageAt(i.birth_date):null;
+    h+=r('WhatsApp',esc(fmtPhone(i.phone)))+r('Nascimento',i.birth_date?esc(isoToBR(i.birth_date))+(a!=null?` <span class="mu sm">(${a} anos)</span>`:''):'')+r('Gênero',esc(lbl(GENDERS,i.gender)))+r('Grupo',esc(i.goal_group||''))+r('Modalidade',esc(lbl(MODS,i.modality)))+r('Início',esc(isoToBR(i.start_date)))}
+  else h+=`<div class="mu sm" style="margin-top:6px">Cadastro ainda não preenchido.</div>`;
+  h+=`<div style="height:10px"></div><button class="btn block" data-act="editInfo" data-id="${u.id}">✏️ ${i?'Editar dados':'Preencher dados'}</button>`;
+  if(i&&i.phone)h+=`<div class="grid2" style="margin-top:8px"><button class="btn block" data-act="openWa" data-u="${esc(waURL(i.phone))}">💬 WhatsApp</button><button class="btn block" data-act="openWa" data-u="${esc(waURL(i.phone,msgAnam(u.name)))}">📋 Pedir avaliação</button></div><button class="btn block" style="margin-top:8px" data-act="openWa" data-u="${esc(waURL(i.phone,msgAccess(u.name,u.email)))}">🔗 Reenviar link do app</button>`;
+  return h+`</div>`}
+function notesCard(u){const N=NOTES[u.id];
+  if(!N){NOTES[u.id]={loading:true};SB.from('coach_notes').select('id,author,body,created_at').eq('user_id',u.id).order('created_at',{ascending:false}).limit(100).then(({data,error})=>{NOTES[u.id]=error?{err:friendlyErr(error)}:{list:data||[]};const t=topV();if(t&&t.view==='user'&&t.params.id===u.id)render()})}
+  const who=a=>{const m=USERS&&USERS.list&&USERS.list.find(x=>x.id===a);return m?firstName(m.name):''};
+  let h=`<h3>Anotações do treinador</h3><div class="card"><textarea id="cnBody" rows="3" maxlength="2000" placeholder="Ex.: relatou dor no ombro; prefere treinar cedo…"></textarea><button class="btn pri block" style="margin-top:8px" data-act="addNote" data-id="${u.id}">Salvar anotação</button><div class="mu xs" style="margin-top:6px">🔒 Só os masters veem. O aluno nunca tem acesso.</div>`;
+  const M=NOTES[u.id];
+  if(M.loading)h+=`<div class="mu sm" style="margin-top:10px">Carregando…</div>`;
+  else if(M.err)h+=`<div class="sm" style="margin-top:10px;color:var(--bad)">${esc(M.err)}</div>`;
+  else h+=M.list.map(n=>`<div style="border-top:1px solid var(--s3);margin-top:10px;padding-top:8px"><div class="row"><span class="mu xs sp">${esc(new Date(n.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}))}${who(n.author)?' · '+esc(who(n.author)):''}</span>${n.author===ME.id?`<button class="btn smb" data-act="delNote" data-id="${u.id}" data-n="${n.id}" aria-label="Apagar anotação">✕</button>`:''}</div><div class="sm" style="white-space:pre-wrap;margin-top:4px">${esc(n.body)}</div></div>`).join('');
+  return h+`</div>`}
+/* modal depois de criar o aluno */
+function createdModal(c){const cred=`<div class="card" style="user-select:all">Link: ${esc(appURL())}<br>E-mail: ${esc(c.email)}<br>Senha: ${esc(c.password)}</div>`;
+  const btns=[{label:'Fechar'}];
+  if(c.phone){btns.push({label:'💬 Enviar acesso',keep:true,fn:()=>openWa(waURL(c.phone,msgAccess(c.name,c.email,c.password)))});btns.push({label:'📋 Pedir avaliação',keep:true,fn:()=>openWa(waURL(c.phone,msgAnam(c.name)))})}
+  btns.push({label:'Montar plano',cls:'pri',fn:busy(async()=>{await loadUsers();const u=USERS.list&&USERS.list.find(x=>x.id===c.id);if(u)openManage(u)})});
+  modal('Aluno criado ✓',`<p>Dados de acesso de <b>${esc(c.name)}</b>:</p>${cred}${c.phone?'<p class="mu sm">Use os botões abaixo para enviar pelo WhatsApp.</p>':'<p class="mu sm">Sem WhatsApp cadastrado: copie e envie os dados acima.</p>'}${c.warn?`<p class="sm" style="color:var(--bad)">A conta foi criada, mas os dados do aluno não foram salvos (${esc(c.warn)}). Abra a ficha e use "Preencher dados".</p>`:''}`,btns)}
+function openWa(url){if(!/^https:\/\/wa\.me\//.test(url))return;window.open(url,'_blank','noopener')}
+/* aluno: cadastro no Perfil (somente leitura) */
+function cadHook(){if(WANT_AV&&ME.role!=='master'){WANT_AV=false;V.tab='avaliacao';V.stack=[]}
+  if(ME.role==='master'||!navigator.onLine||(MYINFO&&MYINFO.uid===ME.id))return;
+  MYINFO={uid:ME.id,loading:true};SB.from('client_info').select('*').eq('user_id',ME.id).maybeSingle().then(({data,error})=>{if(!ME||MYINFO.uid!==ME.id)return;MYINFO={uid:ME.id,data:error?null:data};
+    const i=MYINFO.data;if(i&&S){const B=bodyOf();let ch=false;if(!B.sex&&(i.gender==='M'||i.gender==='F')){B.sex=i.gender;ch=true}if(!B.birth&&i.birth_date){B.birth=i.birth_date;ch=true}if(ch)save()}
+    if(V.tab==='perfil'&&!V.stack.length)render()})}
+function myInfoCard(){const i=MYINFO&&MYINFO.uid===ME.id&&MYINFO.data;if(!i)return'';const C=(window.AV&&AV.CFG)||{};
+  const r=(k,x)=>x?`<div class="row" style="margin-top:6px"><span class="sp">${k}</span><b>${x}</b></div>`:'';
+  return`<h3>Meu cadastro</h3><div class="card">${r('WhatsApp',esc(fmtPhone(i.phone)))+r('Nascimento',esc(isoToBR(i.birth_date)))+r('Gênero',esc(lbl(GENDERS,i.gender)))+r('Grupo',esc(i.goal_group||''))+r('Modalidade',esc(lbl(MODS,i.modality)))+r('Início',esc(isoToBR(i.start_date)))}
+    <div class="mu xs" style="margin-top:8px">Dados cadastrados por ${esc(C.CONTROLLER||'seu treinador')} para contato e acompanhamento do seu treino. Para corrigir ou pedir a exclusão, fale com o seu treinador${C.CONTACT?' ou escreva para '+esc(C.CONTACT):''}.</div></div>`}
+if(/^#avaliacao$/.test(location.hash)){WANT_AV=true;history.replaceState(null,'',location.pathname+location.search)}
+document.addEventListener('input',ev=>{if(ev.target.id==='uSearch'){UF.q=ev.target.value;const q=normTxt(UF.q);document.querySelectorAll('#uList [data-v="user"]').forEach(r=>{const u=USERS.list.find(x=>x.id===r.dataset.id);r.hidden=!!q&&!(u&&normTxt(u.name).includes(q))})}});
+document.addEventListener('change',ev=>{const t=ev.target;if(t.id==='uSt'){UF.st=t.value;render()}else if(t.id==='uGrp'){UF.g=t.value;render()}});
+Object.assign(ACT,{
+  reloadUsers:()=>{USERS=null;for(const k in UB)delete UB[k];for(const k in UH)delete UH[k];for(const k in NOTES)delete NOTES[k];render()},
+  openWa:d=>openWa(d.u),
+  editInfo:d=>{const u=USERS.list.find(x=>x.id===d.id);if(!u)return;
+    modal('Dados de '+esc(firstName(u.name)),infoForm(Object.assign({status:uStatus(u)},u.info||{}),true),[{label:'Cancelar'},{label:'Salvar',cls:'pri',keep:true,fn:busy(async()=>{const o=readInfoForm();
+      const{error}=await SB.from('client_info').upsert(Object.assign({user_id:u.id,updated_by:ME.id,updated_at:new Date().toISOString()},o));if(error)throw new Error(friendlyErr(error));
+      let note='';if(o.status==='encerrado'&&u.active){await adminCall({action:'set_active',user_id:u.id,active:false});note=' · acesso desativado'}
+      else if(o.status!=='encerrado'&&!u.active){await adminCall({action:'set_active',user_id:u.id,active:true});note=' · acesso reativado'}
+      $('#modal').hidden=true;USERS=null;toast('Dados salvos'+note);render()})}])},
+  addNote:d=>{const t=$('#cnBody'),body=(t&&t.value||'').trim();if(!body){toast('Escreva a anotação');return}if(!navigator.onLine){toast('Precisa de internet');return}
+    busy(async()=>{const{error}=await SB.from('coach_notes').insert({user_id:d.id,author:ME.id,body:body.slice(0,2000)});if(error)throw new Error(friendlyErr(error));delete NOTES[d.id];toast('Anotação salva');render()})()},
+  delNote:d=>confirmBox('Apagar anotação','<p>Esta anotação será apagada definitivamente.</p>','Apagar',busy(async()=>{const{error}=await SB.from('coach_notes').delete().eq('id',d.n);if(error)throw new Error(friendlyErr(error));delete NOTES[d.id];toast('Anotação apagada');render()}),true),
+});
 
 
 /* ---------- ações gerais ---------- */
