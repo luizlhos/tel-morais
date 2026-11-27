@@ -558,7 +558,7 @@ function sessionsFromRaw(t,p){if(!t)return[];
     it.sets=sets;it.reps=reps;it.restSec=rest;it.rest=rest>=120?(rest/60)+' min':rest+' s';it.rir=it.kind==='time'||c.cat==='Core'?'':'RIR 2';return it}})}))}
 
 "use strict";
-const APP_VERSION='1.9.0';
+const APP_VERSION='1.9.1';
 /* ---------- tema (preferência do aparelho) ---------- */
 const THEME_KEY='telm.theme';const MQ_DARK=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
 function themePref(){try{return localStorage.getItem(THEME_KEY)||'dark'}catch(e){return'dark'}}
@@ -1372,7 +1372,7 @@ VIEWS.log=function({id}){const L=S.logs.find(l=>l.id===id);if(!L)return hdr('Reg
 VIEWS.ajustes=function(){const st=S.settings,p=myActive();
   let h=hdr('Perfil',esc(ME.name||'')+' · versão '+APP_VERSION,false,syncBadge());
   const mi=(act,ic,t,d,x='')=>`<div class="li tap" data-act="${act}" ${x}><span class="kd">${ic}</span><div class="t"><b>${t}</b><span class="mu sm">${d}</span></div><span class="mu">›</span></div>`;
-  h+=`<div class="card" style="padding:4px 14px">${mi('go','📋','Planos de treino','Em andamento, próximos e finalizados','data-v="planos"')}${ME.role==='master'?mi('openUsers','👥','Alunos','Cadastro, planos, avaliações e acessos')+mi('go','👀','Acompanhamento','Frequência, alertas e feedback dos treinos','data-v="acomp"')+mi('go','💰','Financeiro','Faturas, planos de cobrança e Pix','data-v="fin"')+mi('go','🧩','Modelos de treino','Editar os treinos prontos do app','data-v="modelos"'):''}${metOn(S&&S.lib)||ME.role==='master'?mi('go','⚡','Métodos de treino','Drop set, rest-pause, cluster e outros','data-v="metodos"'):''}${mi('go','❓','Ajuda','Como usar cada parte do app','data-v="ajuda"')}</div>`;
+  h+=`<div class="card" style="padding:4px 14px">${mi('go','📋','Planos de treino','Em andamento, próximos e finalizados','data-v="planos"')}${ME.role==='master'?mi('openUsers','👥','Alunos','Cadastro, planos, avaliações e acessos')+mi('go','👀','Acompanhamento','Frequência, alertas e feedback dos treinos','data-v="acomp"')+mi('openManual','📘','Manual do treinador','PDF com todas as funcionalidades do app')+mi('go','💰','Financeiro','Faturas, planos de cobrança e Pix','data-v="fin"')+mi('go','🧩','Modelos de treino','Editar os treinos prontos do app','data-v="modelos"'):''}${metOn(S&&S.lib)||ME.role==='master'?mi('go','⚡','Métodos de treino','Drop set, rest-pause, cluster e outros','data-v="metodos"'):''}${mi('go','❓','Ajuda','Como usar cada parte do app','data-v="ajuda"')}</div>`;
   h+=`<div class="card"><div class="sw"><span>Sempre mostrar opções avançadas<div class="mu xs">Mostra fases, RIR e progressão de cargas abertas nos planos. Deixe desligado para uma visão mais simples.</div></span><input type="checkbox" data-sf="adv" ${st.adv?'checked':''}></div></div>`;
   {const tp=themePref();h+=`<h3>Aparência</h3><div class="seg">${[['dark','🌙 Escuro'],['light','☀️ Claro'],['auto','📱 Automático']].map(([k,l])=>`<button class="${tp===k?'on':''}" data-act="setTheme" data-t="${k}">${l}</button>`).join('')}</div><p class="mu xs" style="margin:6px 2px 0">Automático segue o modo claro/escuro do iPhone. Vale só para este aparelho.</p>`}
   if(p){const w=progOf(p).week,N=weeksOf(p);h+=`<h3>Plano ativo</h3><div class="card"><div class="b">${esc(p.name)}</div><p class="sm mu">A semana avança sozinha quando você completa todos os treinos. Use os botões só para corrigir.</p>
@@ -1528,6 +1528,7 @@ function helpDot(c,t){return`<span style="display:inline-flex;align-items:center
 VIEWS.ajuda=function(){
   const sec=(t,body,open)=>`<details ${open?'open':''}><summary>${t}</summary><div style="margin-top:8px">${body}</div></details>`;
   let h=hdr('Ajuda','Legendas, termos e o que cada botão faz',true);
+  if(ME&&ME.role==='master'){manualPrefetch();h+=`<button class="btn block" data-act="openManual">📘 Abrir o Manual do treinador (PDF)</button><button class="btn ghost block" data-act="manualUpload" style="margin:6px 0 12px">⬆️ Enviar nova versão do manual (PDF)</button><input type="file" id="manualFile" accept="application/pdf,.pdf" hidden>`}
   h+=sec('📖 Termos do treino',
     helpRow('<b>RIR</b>','RIR (Repetições em Reserva)','Quantas repetições você ainda conseguiria fazer ao terminar a série. RIR 2 = parou com 2 de sobra. RIR 0 = falha. O <b>RIR alvo</b> da semana vem da fase da periodização.')+
     helpRow('<b>4×8–12</b>','Séries × repetições','4 séries de 8 a 12 repetições. Ao atingir o topo da faixa (12) em todas as séries, é hora de subir a carga.')+
@@ -1580,9 +1581,44 @@ VIEWS.ajuda=function(){
     helpRow('📅','Treinos','Aba Treinos: o plano atual e seus treinos (A, B, C…). Toque em um treino para ver, trocar, adicionar ou remover exercícios. Todos os planos (em andamento, próximos e finalizados) ficam em Perfil → Planos de treino.')+
     helpRow('🩺','Avaliação','Aba Avaliação. <b>Questionário</b>: saúde, dieta e rotina, respondido por você (com análise de IMC, gasto calórico, % de gordura e água). <b>Avaliação física</b>: medidas, dobras e bioimpedância, registradas pelo seu treinador.')+
     helpRow('⚡','Opções avançadas','Em Perfil. Ligue <b>Sempre mostrar opções avançadas</b> para ver fases, RIR e progressão de cargas abertas nos planos.')+
-    helpRow('👤','Perfil','Planos de treino, avaliação, ajuda, aparência, perfil corporal (para as calorias), sons e alertas, conta'+(ME&&ME.role==='master'?' e backup':'')+'.')+
+    helpRow('👤','Perfil','Planos de treino, '+(ME&&ME.role==='master'?'alunos, acompanhamento, financeiro, modelos, ':'minhas faturas, meu cadastro, ')+'métodos, ajuda, aparência, perfil corporal (para as calorias), sons e alertas, conta'+(ME&&ME.role==='master'?' e backup':'')+'.')+
     helpRow('🌓','Aparência','Em Perfil: tema Escuro, Claro ou Automático (segue o iPhone). A escolha vale para o aparelho em que foi feita.')+
     helpRow('⬇️','Backup','"Exportar" gera uma cópia extra dos seus dados; "Importar" restaura essa cópia.'));
+  h+=sec('▶️ Demonstração e feedback do treino',
+    helpRow('▶','Como fazer','Ao lado de cada exercício: imagens e passo a passo da execução.'+(ME&&ME.role==='master'?' O master pode trocar por um vídeo (YouTube ou .mp4) e instruções próprias, que valem para todos os alunos.':''))+
+    helpRow('💪','Como foi o treino?','Ao finalizar, informe o esforço (1 a 10) e se sentiu dor ou desconforto, e onde. É opcional e o treinador acompanha essas respostas.'));
+  if(!ME||ME.role!=='master')h+=sec('💳 Mensalidade',
+    helpRow('🔔','Avisos de vencimento','Na tela Hoje aparece um aviso alguns dias antes, no dia e depois do vencimento, com a chave Pix e o botão Copiar.')+
+    helpRow('💳','Minhas faturas','Em Perfil → Minhas faturas: faturas em aberto, pagas e a chave Pix. A baixa é feita pelo treinador depois que você envia o comprovante.')+
+    helpRow('🔒','Acesso bloqueado','Se a mensalidade passar do prazo combinado, o app mostra só a fatura e o Pix. O acesso volta sozinho quando o pagamento é confirmado — toque em "Já paguei — verificar".')+
+    helpRow('🪪','Meu cadastro','Em Perfil: dados cadastrados pelo treinador (WhatsApp, nascimento, grupo, modalidade). Para corrigir ou excluir, fale com ele.'));
+  if(ME&&ME.role==='master'){
+    h+=sec('👥 Alunos (master)',
+      helpRow('➕','Novo aluno','Nome, e-mail (login), senha inicial e, se quiser, WhatsApp, nascimento, gênero, modalidade, grupo e início. Depois: Enviar acesso e Pedir avaliação pelo WhatsApp.')+
+      helpRow('🔎','Busca e filtros','Em Perfil → Alunos: busque pelo nome e filtre por situação e grupo. 💬 abre o WhatsApp do aluno.')+
+      helpRow('<span style="color:var(--ok)">●</span><span style="color:var(--warn)">●</span><span class="mu">●</span>','Situação','<b>Ativo</b>: acesso, cobrança e alertas. <b>Pausado</b>: mantém o acesso, sem cobrança nem alertas (férias, lesão). <b>Encerrado</b>: acesso desativado, histórico mantido.')+
+      helpRow('✏️','Ficha do aluno','Dados, acompanhamento, financeiro, anotações, planos, questionário, avaliação física, histórico, nome, senha e acesso.')+
+      helpRow('🔒','Anotações do treinador','Notas datadas na ficha do aluno. Só os masters veem; o aluno nunca tem acesso.')+
+      helpRow('📋','Pedir avaliação','Na ficha: abre o WhatsApp com o link que já leva o aluno à aba Avaliação.'));
+    h+=sec('👀 Acompanhamento (master)',
+      helpRow('👀','Painel','Perfil → Acompanhamento: alunos ativos, treinos em 7 dias e frequência média. Pausados ficam fora.')+
+      helpRow('⚠️','Alertas','💤 7+ dias sem treinar · 📋 sem plano ou plano no fim · 📏 avaliação com mais de 8 semanas · 🩹 dor relatada nos últimos 7 dias · 💰 mensalidade vencida.')+
+      helpRow('<b style="color:var(--ok)">80%</b>','Frequência','Treinos feitos ÷ previstos no plano ativo, nas últimas 4 semanas. Verde ≥ 80%, amarelo 50–79%, vermelho abaixo de 50%.')+
+      helpRow('🔔','Tela Hoje','Mostra quantos alunos precisam de atenção. Toque para abrir o painel.'));
+    h+=sec('💰 Financeiro (master)',
+      helpRow('⚙️','Configurações','Perfil → Financeiro → Configurações: chave Pix, nome de quem recebe, dias de aviso antes do vencimento, aviso no dia e dias de atraso para bloquear (vazio = desligado).')+
+      helpRow('🏷️','Planos de cobrança','Nome, valor e período (mensal, trimestral, semestral, anual). Inativos não aparecem para novas assinaturas.')+
+      helpRow('📝','Assinatura do aluno','Na ficha → Financeiro: plano, valor para o aluno, dia do vencimento (1–28) e início. As faturas são geradas sozinhas todo dia.')+
+      helpRow('✓','Dar baixa','Toque na fatura: data, valor, forma de pagamento. Se o aluno estava bloqueado, o acesso volta na hora.')+
+      helpRow('💬','Cobrar','Abre o WhatsApp com valor, vencimento e a chave Pix.')+
+      helpRow('📅','Mudar vencimento','Prorroga o prazo combinado com o aluno; também libera um bloqueio se o novo prazo permitir.')+
+      helpRow('🔔','Alerta na tela Hoje','"Fique atento aos vencimentos!" com quantos alunos estão perto de vencer ou já vencidos.')+
+      helpRow('➕','Cobrança avulsa','Fatura única, como uma avaliação presencial.'));
+    h+=sec('🗓️ Rotina sugerida (master)',
+      helpRow('☀️','Todo dia','Toque nos alertas da tela Hoje: cobre vencidos, dê baixa no que entrou e responda quem relatou dor.')+
+      helpRow('📆','Toda semana','Acompanhamento: mensagem para quem está sem treinar e novo plano para quem está na última semana.')+
+      helpRow('📏','A cada 8 semanas','Peça a reavaliação e registre a avaliação física.')+
+      helpRow('🆕','Aluno novo','Novo aluno → Enviar acesso → Pedir avaliação → Montar treino pela avaliação → Definir plano de cobrança.'))}
   return h};
 
 /* ================= NUVEM: login, sincronização e painel master ================= */
@@ -1841,6 +1877,10 @@ function myInfoCard(){const i=MYINFO&&MYINFO.uid===ME.id&&MYINFO.data;if(!i)retu
     <div class="mu xs" style="margin-top:8px">Dados cadastrados por ${esc(C.CONTROLLER||'seu treinador')} para contato e acompanhamento do seu treino. Para corrigir ou pedir a exclusão, fale com o seu treinador${C.CONTACT?' ou escreva para '+esc(C.CONTACT):''}.</div></div>`}
 if(/^#avaliacao$/.test(location.hash)){WANT_AV=true;history.replaceState(null,'',location.pathname+location.search)}
 document.addEventListener('input',ev=>{if(ev.target.id==='uSearch'){UF.q=ev.target.value;const q=normTxt(UF.q);document.querySelectorAll('#uList [data-v="user"]').forEach(r=>{const u=USERS.list.find(x=>x.id===r.dataset.id);r.hidden=!!q&&!(u&&normTxt(u.name).includes(q))})}});
+document.addEventListener('change',async ev=>{const t=ev.target;if(t.id!=='manualFile')return;const f=t.files&&t.files[0];t.value='';if(!f)return;
+  if(!/\.pdf$/i.test(f.name)&&f.type!=='application/pdf'){toast('Escolha um arquivo PDF');return}if(f.size>10*1024*1024){toast('PDF maior que 10 MB');return}
+  toast('Enviando o manual…');const{error}=await SB.storage.from(MANUAL_BUCKET).upload(MANUAL_PATH,f,{upsert:true,contentType:'application/pdf',cacheControl:'60'});
+  if(error){toast('Erro ao enviar: '+friendlyErr(error));return}MANUAL=null;manualPrefetch(true);toast('Manual atualizado ✓')});
 document.addEventListener('change',ev=>{const t=ev.target;if(t.id==='uSt'){UF.st=t.value;render()}else if(t.id==='uGrp'){UF.g=t.value;render()}});
 Object.assign(ACT,{
   reloadUsers:()=>{USERS=null;for(const k in UB)delete UB[k];for(const k in UH)delete UH[k];for(const k in NOTES)delete NOTES[k];render()},
@@ -1948,7 +1988,7 @@ function finHook(){if(!ME||ME.role==='master')return finMasterHook();if(!navigat
   if(MYBILL&&MYBILL.uid===ME.id&&(MYBILL.loading||Date.now()-MYBILL.at<6e5))return;loadMyBill()}
 function loadMyBill(){MYBILL={uid:ME.id,loading:true,at:Date.now(),data:MYBILL&&MYBILL.uid===ME.id?MYBILL.data:null};const me=ME.id;
   SB.rpc('my_billing').then(({data,error})=>{if(!ME||ME.id!==me)return;MYBILL={uid:me,at:Date.now(),data:error?(MYBILL.data||null):data};if(V.tab==='hoje'||V.tab==='perfil'||ME.active===false)render()},()=>{MYBILL.loading=false})}
-function finMasterHook(){if(!navigator.onLine||(FINOPEN&&(FINOPEN.loading||Date.now()-FINOPEN.at<3e5)))return;FINOPEN={loading:true,at:Date.now()};
+function finMasterHook(){manualPrefetch();if(!navigator.onLine||(FINOPEN&&(FINOPEN.loading||Date.now()-FINOPEN.at<3e5)))return;FINOPEN={loading:true,at:Date.now()};
   Promise.all([SB.from('fin_invoices').select('id,user_id,description,due_date,amount,status').eq('status','aberta').order('due_date'),finSettings()]).then(([a,st])=>{FINOPEN={at:Date.now(),list:a.error?[]:a.data||[],st};if(V.tab==='hoje'&&!V.stack.length)render()})}
 function billAlert(b){if(!b)return null;const T=b.today||todayISO();const open=(b.invoices||[]).filter(i=>i.status==='aberta').sort((x,y)=>x.due_date<y.due_date?-1:1);if(!open.length)return null;
   const i=open[0],d=dDiff(T,i.due_date),N=b.block_after_days;
@@ -1963,7 +2003,7 @@ function finBanner(){if(!ME)return'';
     return`<div class="card tap" data-act="go" data-v="fin" style="border-left:4px solid var(--warn)"><div class="row"><span class="sp sm">🔔 <b>Fique atento aos vencimentos!</b> ${n===1?'1 aluno está próximo a vencer ou já está com a mensalidade vencida!':n+' alunos estão próximos a vencer ou já estão com a mensalidade vencida!'}</span><span class="mu">›</span></div></div>`}
   const b=MYBILL&&MYBILL.uid===ME.id&&MYBILL.data,a=billAlert(b);if(!a)return'';
   return`<div class="card" style="border-left:4px solid var(--${a.lvl})"><div class="sm">${a.lvl==='bad'?'⚠️':'🔔'} ${a.txt}</div>${pixBox(b)}<button class="btn block" style="margin-top:8px" data-act="go" data-v="myFin">Ver minhas faturas</button></div>`}
-function myFinCard(){const b=MYBILL&&MYBILL.uid===ME.id&&MYBILL.data;if(!b||(!b.invoices.length&&!b.pix_key))return'';const o=b.invoices.filter(i=>i.status==='aberta');
+function myFinCard(){const b=MYBILL&&MYBILL.uid===ME.id&&MYBILL.data;if(!b||!Array.isArray(b.invoices)||(!b.invoices.length&&!b.pix_key))return'';const o=b.invoices.filter(i=>i.status==='aberta');
   return`<h3>Financeiro</h3><div class="card" style="padding:4px 14px"><div class="li tap" data-act="go" data-v="myFin"><span class="kd">💳</span><div class="t"><b>Minhas faturas</b><span class="mu sm">${o.length?`${o.length} em aberto · ${brl(o.reduce((s,i)=>s+Number(i.amount),0))}`:'Tudo em dia ✓'}</span></div><span class="mu">›</span></div></div>`}
 function myInvList(b){if(!b.invoices.length)return'<div class="empty">Nenhuma fatura ainda.</div>';
   return`<div class="card" style="padding:4px 14px">${b.invoices.map(i=>`<div class="li"><div class="t"><b class="sm">${esc(i.description)}</b><span class="mu xs">vence ${esc(isoToBR(i.due_date))}${i.status==='paga'?' · paga em '+esc(isoToBR(i.paid_at))+(i.method?' ('+esc(lbl(METHODS,i.method))+')':''):''}</span></div><div style="text-align:right"><b class="sm">${brl(i.status==='paga'?i.paid_amount:i.amount)}</b><div class="xs">${invPill(i)}</div></div></div>`).join('')}</div>`}
@@ -2090,7 +2130,14 @@ function acUserCard(u){if(!ACOMP||(!ACOMP.rows&&!ACOMP.loading&&!ACOMP.err)||Dat
 function acBanner(){if(!ME||ME.role!=='master')return'';if(!ACOMP||(!ACOMP.loading&&Date.now()-ACOMP.at>6e5)){if(navigator.onLine&&SB)loadAcomp();return''}
   if(!ACOMP.rows)return'';const n=ACOMP.rows.filter(r=>r.alerts.some(a=>a[0]!=='fin')).length;if(!n)return'';
   return`<div class="card tap" data-act="go" data-v="acomp" style="border-left:4px solid var(--ac)"><div class="row"><span class="sp sm">👀 <b>Acompanhamento:</b> ${n===1?'1 aluno precisa':n+' alunos precisam'} de atenção (treinos, plano, avaliação ou dor).</span><span class="mu">›</span></div></div>`}
-Object.assign(ACT,{acReload:()=>{ACOMP=null;USERS=null;render()}});
+/* manual do treinador: PDF privado no Supabase Storage (bucket master-docs, só master lê e grava) */
+const MANUAL_BUCKET='master-docs',MANUAL_PATH='manual-treinador.pdf';let MANUAL=null;
+function manualPrefetch(force){if(!ME||ME.role!=='master'||!SB||!SB.storage||!navigator.onLine)return;if(!force&&MANUAL&&(MANUAL.loading||Date.now()-MANUAL.at<45*60e3))return;
+  MANUAL={loading:true,at:Date.now()};SB.storage.from(MANUAL_BUCKET).createSignedUrl(MANUAL_PATH,3600).then(({data,error})=>{MANUAL={at:Date.now(),url:!error&&data&&data.signedUrl||null}},()=>{MANUAL={at:Date.now(),url:null}})}
+Object.assign(ACT,{openManual:()=>{if(MANUAL&&MANUAL.url){window.open(MANUAL.url,'_blank','noopener');return}
+    if(MANUAL&&!MANUAL.loading){toast(navigator.onLine?'Manual ainda não enviado. Em Ajuda, use "Enviar manual (PDF)".':'Precisa de internet para abrir o manual');manualPrefetch(true);return}
+    toast('Preparando o manual… toque de novo em instantes');manualPrefetch()},
+  manualUpload:()=>{const f=document.getElementById('manualFile');if(f)f.click()},acReload:()=>{ACOMP=null;USERS=null;render()}});
 
 
 /* ---------- ações gerais ---------- */
