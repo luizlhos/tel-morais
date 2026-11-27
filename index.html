@@ -546,7 +546,7 @@ function sessionsFromRaw(t,p){if(!t)return[];
     it.sets=sets;it.reps=reps;it.restSec=rest;it.rest=rest>=120?(rest/60)+' min':rest+' s';it.rir=it.kind==='time'||c.cat==='Core'?'':'RIR 2';return it}})}))}
 
 "use strict";
-const APP_VERSION='1.3.0';
+const APP_VERSION='1.3.1';
 /* ---------- tema (preferência do aparelho) ---------- */
 const THEME_KEY='telm.theme';const MQ_DARK=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
 function themePref(){try{return localStorage.getItem(THEME_KEY)||'dark'}catch(e){return'dark'}}
@@ -1309,7 +1309,7 @@ VIEWS.ajustes=function(){const st=S.settings,p=myActive();
     <div style="padding:10px 0"><button class="btn block" data-act="testSound">🔊 Testar alertas sonoros</button><div class="mu xs" style="margin-top:6px">Se não ouvir: aumente o volume e confira se o iPhone não está no modo silencioso.</div></div></div>`;
   h+=`<h3>Conta</h3><div class="card"><div class="b">${esc(ME.name||'')}${ME.role==='master'?' <span class="pill" style="background:var(--ac);color:#fff">master</span>':''}</div><div class="mu sm">${esc(ME.email||'')}</div><div class="sm" style="margin:8px 0">${syncText()}</div>
     <button class="btn block" data-act="syncNow">Sincronizar agora</button><div style="height:8px"></div><button class="btn block" data-act="logout" style="color:var(--bad)">Sair da conta</button></div>`;
-  h+=`<h3>Backup extra</h3><div class="card"><p class="sm mu" style="margin-top:0">Seus dados ficam na nuvem e neste aparelho. O arquivo é uma cópia extra.${st.lastBackup?` Último: ${new Date(st.lastBackup).toLocaleDateString('pt-BR')}.`:''}</p>
+  if(ME&&ME.role==='master')h+=`<h3>Backup extra</h3><div class="card"><p class="sm mu" style="margin-top:0">Seus dados ficam na nuvem e neste aparelho. O arquivo é uma cópia extra.${st.lastBackup?` Último: ${new Date(st.lastBackup).toLocaleDateString('pt-BR')}.`:''}</p>
     <button class="btn block" data-act="exportJSON">Exportar backup (.json)</button><div style="height:8px"></div><button class="btn block" data-act="importJSON">Importar backup</button><div style="height:8px"></div><button class="btn block" data-act="exportCSV">Exportar histórico (.csv / Excel)</button></div>`;
   return h};
 function share(name,text,type){const blob=new Blob([text],{type});let file=null;try{file=new File([blob],name,{type})}catch(e){}
@@ -1501,7 +1501,7 @@ VIEWS.ajuda=function(){
     helpRow('📅','Treinos','Aba Treinos: o plano atual e seus treinos (A, B, C…). Toque em um treino para ver, trocar, adicionar ou remover exercícios. Todos os planos (em andamento, próximos e finalizados) ficam em Perfil → Planos de treino.')+
     helpRow('🩺','Avaliação','Aba Avaliação. <b>Questionário</b>: saúde, dieta e rotina, respondido por você (com análise de IMC, gasto calórico, % de gordura e água). <b>Avaliação física</b>: medidas, dobras e bioimpedância, registradas pelo seu treinador.')+
     helpRow('⚡','Opções avançadas','Em Perfil. Ligue <b>Sempre mostrar opções avançadas</b> para ver fases, RIR e progressão de cargas abertas nos planos.')+
-    helpRow('👤','Perfil','Planos de treino, avaliação, ajuda, aparência, perfil corporal (para as calorias), sons e alertas, conta e backup.')+
+    helpRow('👤','Perfil','Planos de treino, avaliação, ajuda, aparência, perfil corporal (para as calorias), sons e alertas, conta'+(ME&&ME.role==='master'?' e backup':'')+'.')+
     helpRow('🌓','Aparência','Em Perfil: tema Escuro, Claro ou Automático (segue o iPhone). A escolha vale para o aparelho em que foi feita.')+
     helpRow('⬇️','Backup','"Exportar" gera uma cópia extra dos seus dados; "Importar" restaura essa cópia.'));
   return h};
@@ -1740,9 +1740,9 @@ Object.assign(ACT,{
     confirmBox(`Encerrar semana ${pr.week}`,`<p>Ir para a <b>semana ${pr.week+1}</b>${pr.week<N?' ('+esc(phaseAt(p,pr.week+1).name)+')':''} sem fazer: ${miss.join(', ')||'—'}?</p>`,'Avançar semana',()=>{pr.week++;if(pr.week>N&&p.repeat){pr.week=1;pr.round=(pr.round||1)+1}save();render();toast(pr.week>N?'Plano concluído':'Semana '+pr.week+' · '+phaseAt(p,pr.week).name)})},
   shiftWeek:d=>{const p=myActive();if(!p)return;const pr=progOf(p);pr.week=Math.min(weeksOf(p)+1,Math.max(1,pr.week+(+d.d)));save();render()},
   delLog:d=>confirmBox('Excluir registro','Este treino será removido do histórico.','Excluir',()=>{const L0=S.logs.find(L=>L.id===d.id);S.logs=S.logs.filter(L=>L.id!==d.id);if(L0){S._sync.dirtyLogs=S._sync.dirtyLogs.filter(x=>x!==d.id);S._sync.delLogs.push({id:L0.id,date:L0.date})}save();V.stack.pop();render()},true),
-  exportJSON:()=>{share(`treino-backup-${iso(new Date())}.json`,JSON.stringify(Object.assign({},S,{_sync:undefined})),'application/json');S.settings.lastBackup=Date.now();save();setTimeout(render,500)},
-  importJSON:()=>$('#importFile').click(),
-  exportCSV:()=>{const rows=[['data','plano','semana','treino','exercicio','tipo','serie','kg','reps','rir','segundos','minutos','km','resultado_wod']];
+  exportJSON:()=>{if(!ME||ME.role!=='master')return;share(`treino-backup-${iso(new Date())}.json`,JSON.stringify(Object.assign({},S,{_sync:undefined})),'application/json');S.settings.lastBackup=Date.now();save();setTimeout(render,500)},
+  importJSON:()=>ME&&ME.role==='master'&&$('#importFile').click(),
+  exportCSV:()=>{if(!ME||ME.role!=='master')return;const rows=[['data','plano','semana','treino','exercicio','tipo','serie','kg','reps','rir','segundos','minutos','km','resultado_wod']];
     S.logs.forEach(L=>L.exercises.forEach(x=>{if(x.kind==='cardio')rows.push([L.date,L.planName||'',L.week,L.name,x.name,'cardio',1,'','','','',x.cardio.min??'',x.cardio.km??'','']);else if(x.kind==='wod')rows.push([L.date,L.planName||'',L.week,L.name,x.name,'wod',1,x.wod.kg??'','','','','','',wodScore(x.wod)]);
       else doneSets(x).forEach((s,j)=>rows.push([L.date,L.planName||'',L.week,L.name,x.name,x.kind||'load',j+1,s.kg??'',s.reps??'',s.rir??'',s.sec??'','','','']))}));
     const csv='﻿'+rows.map(r=>r.map(c=>{c=String(c);if(/^-?\d+\.\d+$/.test(c))c=c.replace('.',',');return/[;"\n]/.test(c)?`"${c.replace(/"/g,'""')}"`:c}).join(';')).join('\n');share(`treino-historico-${iso(new Date())}.csv`,csv,'text/csv')},
