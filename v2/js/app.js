@@ -1,4 +1,4 @@
-const APP_VERSION='2.0.0-alpha.3';
+const APP_VERSION='2.0.0-alpha.4';
 const EXDIR='../exercicios/'; // v2 em teste: usa as fotos da pasta principal;
 /* ---------- tema (preferência do aparelho) ---------- */
 const THEME_KEY='telm.theme';const MQ_DARK=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
@@ -113,7 +113,7 @@ function shiftFuture(e,p,from,delta){const N=weeksOf(p);for(let w=Math.max(1,fro
 
 /* ---------- planos ---------- */
 function usesLoad(e){return e.kind==='load'||e.kind==='bw'}
-function newPlan(name,tplKey){const t=PERIOD_TEMPLATES[tplKey||'hip12'];return{id:uid36('p'),name:name||'Novo plano',created:Date.now(),repeat:!!t.repeat,phases:clone(t.phases),weekNotes:[],sessions:[],tips:[],nutrition:[]}}
+function newPlan(name,tplKey){const t=PERIOD_TEMPLATES[tplKey||'hip12'];return{id:uid36('p'),name:name||'Novo plano',mode:'semana',created:Date.now(),repeat:!!t.repeat,phases:clone(t.phases),weekNotes:[],sessions:[],tips:[],nutrition:[]}}
 function emptyLib(){return{v:3,plans:[],activeId:null}}
 function LIB(){return CTX.lib||(S&&S.lib)||emptyLib()}
 function planById(id,lib){return(lib||LIB()).plans.find(p=>p.id===id)||null}
@@ -191,6 +191,32 @@ function exHasData(x){return x.kind==='cardio'||x.kind==='wod'?!!x.done:doneSets
 function lastPerf(itemId,skipId){for(let i=S.logs.length-1;i>=0;i--){const L=S.logs[i];if(L.id===skipId)continue;const x=L.exercises.find(x=>x.exId===itemId);if(x&&exHasData(x))return{log:L,ex:x}}return null}
 function doneThisWeek(p){const pr=progOf(p),w=pr.week,r=pr.round||1;return new Set(S.logs.filter(L=>L.planId===p.id&&L.week===w&&(L.round||1)===r).map(L=>L.sessionId))}
 function nextSession(p){const d=doneThisWeek(p);return p.sessions.find(s=>!d.has(s.id))||null}
+/* ---------- PLANO POR DIA DA SEMANA (v2) ----------
+   p.mode='semana' (padrão dos planos novos) · p.grade[0..6] = id do treino de seg..dom (null = descanso)
+   A semana do plano segue o calendário (pr.start = segunda da semana 1). Atrasado: pode fazer ou pular até domingo; depois, perdido. */
+const DSEM=['seg','ter','qua','qui','sex','sáb','dom'],DSEML=['segunda','terça','quarta','quinta','sexta','sábado','domingo'];
+const GRADE_AUTO={1:[0],2:[0,3],3:[0,2,4],4:[0,1,3,4],5:[0,1,2,3,4],6:[0,1,2,3,4,5],7:[0,1,2,3,4,5,6]};
+let SEMDAY=null;
+function isSem(p){return!!p&&p.mode==='semana'}
+function gradeOf(p){const ids=new Set(p.sessions.map(s=>s.id));let g=Array.isArray(p.grade)&&p.grade.length===7?p.grade.map(x=>ids.has(x)?x:null):null;
+  if(!g||!g.some(Boolean)){g=Array(7).fill(null);(GRADE_AUTO[Math.min(7,p.sessions.length)]||[]).forEach((d,i)=>g[d]=p.sessions[i].id)}return g}
+function dIdx(d){return(d.getDay()+6)%7}
+function addDays(s,n){const d=pISO(s);d.setDate(d.getDate()+n);return iso(d)}
+function mondayIso(d){d=new Date(d);d.setDate(d.getDate()-dIdx(d));return iso(d)}
+function semSync(p){const pr=progOf(p),mon=mondayIso(new Date());
+  if(!pr.start)pr.start=addDays(mon,-7*(Math.max(1,pr.week||1)-1));
+  const cw=Math.round((pISO(mon)-pISO(pr.start))/864e5/7)+1,N=weeksOf(p);let w=Math.max(1,cw),r=pr.round||1;
+  if(w>N){if(p.repeat){r=Math.floor((w-1)/N)+1;w=(w-1)%N+1}else w=N+1}
+  if(pr.week!==w||(pr.round||1)!==r){pr.week=w;pr.round=r;save()}return pr}
+function semWeek(p,mon){const cur=mondayIso(new Date());mon=mon||cur;const pr=semSync(p),t=mon===cur?dIdx(new Date()):(mon<cur?7:-1),g=gradeOf(p),sk=pr.skip||[],end=addDays(mon,6);
+  const logs=S.logs.filter(L=>L.planId===p.id&&L.date>=mon&&L.date<=end),used=new Set();
+  const days=g.map((sid,d)=>({d,sid,s:sid?sessIn(p,sid):null,date:addDays(mon,d)}));
+  days.forEach(o=>{if(!o.sid)return;const L=logs.find(L=>!used.has(L.id)&&L.day===o.d&&L.sessionId===o.sid);if(L){used.add(L.id);o.log=L}});
+  days.forEach(o=>{if(!o.sid||o.log)return;const L=logs.find(L=>!used.has(L.id)&&L.day==null&&L.sessionId===o.sid);if(L){used.add(L.id);o.log=L}});
+  days.forEach(o=>{o.st=!o.sid?'rest':o.log?'done':t===7?'lost':sk.includes(mon+':'+o.d)?'skip':o.d<t?'late':o.d===t?'today':'next'});
+  return{days,t,mon,extra:logs.filter(L=>!used.has(L.id))}}
+function semDayOf(p,sid){const W=semWeek(p);const o=W.days.find(o=>o.sid===sid&&o.st==='today')||W.days.find(o=>o.sid===sid&&o.st==='late')||W.days.find(o=>o.sid===sid&&o.st==='next')||W.days.find(o=>o.sid===sid&&o.st==='skip');return o?o.d:null}
+{const _ns=nextSession;nextSession=function(p){if(!isSem(p))return _ns(p);const W=semWeek(p);const o=W.days.find(o=>o.st==='today')||W.days.find(o=>o.st==='late')||W.days.find(o=>o.st==='next');return o?o.s:null}}
 function sortLogs(){S.logs.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.startedAt||0)-(b.startedAt||0))}
 
 /* ---------- sugestão de carga ---------- */
@@ -272,6 +298,19 @@ function itemTarget(e,p,w){const k=e.kind;
   if(k==='time')return[`${sets}×${esc(e.reps)}s`,pl!=null?fkg(pl)+' kg':''];
   if(k==='bw')return[`${sets}×${esc(e.reps)}`,pl?'+'+fkg(pl)+' kg':'<span class="mu">PC</span>'];
   return[`${sets}×${esc(e.reps)}`,pl!=null?fkg(pl)+' kg':'<span class="mu">livre</span>']}
+function semCard(p,o,eyb){const s=o.s,fotos=s.exercises.map(e=>{const k=midiaKey(e);return k&&fotoDe(k,0)}).filter(Boolean).slice(0,3);
+  return`<div class="card today">${fotos.length?`<div class="tstrip" style="grid-template-columns:repeat(${fotos.length},minmax(0,1fr))">${fotos.map(u=>`<img src="${u}" alt="" loading="lazy">`).join('')}</div>`:''}<div class="tbody"><div class="eyb">${eyb}</div><div class="tname">${esc(s.name)}</div><div class="mu sm">${s.exercises.length} exercício${s.exercises.length===1?'':'s'}${s.duration?' · '+esc(s.duration):''}${s.groups?' · '+esc(s.groups):''}</div>
+    <button class="btn pri block big" data-act="start" data-id="${s.id}" data-day="${o.d}" style="margin-top:10px">▶ Começar treino</button>${curtoOn(S.lib)?`<button class="btn block" data-act="startShort" data-id="${s.id}" data-day="${o.d}" style="margin-top:8px">⏱ Tenho pouco tempo</button>`:''}<button class="lnk" data-act="go" data-v="session" data-id="${s.id}" data-pid="${p.id}" style="align-self:center">Ver exercícios antes</button></div></div>`}
+function hojeSemana(p){const W=semWeek(p),T=W.days[W.t],nx=W.days.find(o=>o.st==='next');let h='';
+  W.days.filter(o=>o.st==='late').forEach(o=>{h+=`<div class="card late"><b>Treino de ${DSEML[o.d]} ficou para trás</b><div class="mu sm">${esc(o.s.name)} · dá para fazer ou pular até domingo. Depois fica como perdido.</div><div class="row" style="gap:8px;margin-top:10px"><button class="btn pri smb sp" data-act="start" data-id="${o.sid}" data-day="${o.d}">Fazer o de ${DSEM[o.d]}</button><button class="btn smb sp" data-act="semSkip" data-day="${o.d}">Pular</button></div></div>`});
+  if(T.st==='today'){h+=semCard(p,T,'TREINO DE HOJE · '+DSEML[T.d].toUpperCase());if(!S.logs.length)h+=`<div class="banner">👟 <b>Primeiro treino?</b> Toque em <b>Começar treino</b>. O app mostra cada exercício com foto, você marca as séries e ele conta o descanso.</div>`}
+  else if(T.st==='done'||T.st==='skip')h+=`<div class="card hero"><h2>${T.st==='done'?'Treino de hoje feito ✓':'Treino de hoje pulado'}</h2><p class="mu sm">${esc(T.s.name)}${nx?` · próximo: <b>${DSEML[nx.d]}</b> (${esc(nx.s.name)})`:' · não há mais treinos nesta semana'}.</p>${T.st==='skip'?`<button class="btn block" data-act="start" data-id="${T.sid}" data-day="${T.d}">Fazer mesmo assim</button>`:''}</div>`;
+  else h+=`<div class="card hero"><h2>Hoje é dia de descanso</h2><p class="mu sm">${nx?`Próximo treino: <b>${DSEML[nx.d]}</b> · ${esc(nx.s.name)}`:'Não há mais treinos nesta semana.'}</p>${nx?`<button class="btn block" data-act="start" data-id="${nx.sid}" data-day="${nx.d}">Adiantar o de ${DSEM[nx.d]}</button>`:''}</div>`;
+  const sch=W.days.filter(o=>o.sid),nd=sch.filter(o=>o.st==='done').length,LB={rest:'descanso',done:'feito ✓',skip:'pulado',late:'atrasado',today:'hoje',next:''};
+  h+=`<div class="card"><div class="row"><b class="sp">Esta semana</b><span class="mu sm">${nd} de ${sch.length} feito${nd===1?'':'s'}</span></div>
+    <div class="wkt wk7">${W.days.map(o=>`<button class="${o.st==='today'?'now':o.st}" ${o.sid?`data-act="go" data-v="session" data-id="${o.sid}" data-pid="${p.id}"`:'disabled'} aria-label="${DSEML[o.d]}: ${o.s?esc(o.s.name):'descanso'}"><b>${DSEM[o.d]}</b><span>${o.st==='next'?LETRA(p.sessions.indexOf(o.s)):LB[o.st]}</span></button>`).join('')}</div>`;
+  {const pv=addDays(W.mon,-7),pr=progOf(p);if(pr.start&&pv>=pr.start){const P=semWeek(p,pv),ps=P.days.filter(o=>o.sid),pd=ps.filter(o=>o.st==='done').length,pl=ps.length-pd;if(ps.length)h+=`<p class="mu xs" style="margin:10px 0 0">Semana passada: ${pd} de ${ps.length} feito${pd===1?'':'s'}${pl?` · <b style="color:var(--warn)">${pl} perdido${pl===1?'':'s'}</b>`:''}.</p>`}}
+  h+=`</div>`;return h}
 VIEWS.hoje=function(){
   if(S.active)return viewWorkout();
   const p=myActive();
@@ -279,9 +318,11 @@ VIEWS.hoje=function(){
   h+=finBanner()+acBanner();
   if(!p)return h+firstSteps();
   if(!p.sessions.length)return h+`<div class="card hero"><h2>${p?'Seu plano ainda não tem treinos':'Nenhum plano ativo'}</h2><p class="mu sm">Crie um plano (ou adicione treinos a ele) na aba <b>Treinos</b>.${ME.role!=='master'?' O master também pode montar para você — aparece aqui automaticamente.':''}</p><button class="btn pri block" data-act="tab" data-t="treinos">Ir para Treinos</button><div style="height:8px"></div><button class="btn block" data-act="syncNow">Atualizar</button></div>`;
+  if(isSem(p))semSync(p);
   const pr=progOf(p),w=pr.week,N=weeksOf(p);
   if(w>N)return h+`<div class="card hero"><h2>${esc(p.name)} concluído 🎉</h2><p class="mu sm">Você completou as ${N} semanas. O que vem agora?</p><button class="btn pri block" data-act="repeatPlan">Repetir com cargas atualizadas</button><div style="height:8px"></div><button class="btn block" data-act="go" data-v="planos">Escolher outro plano</button></div>`;
   const ph=phaseAt(p,w),done=doneThisWeek(p),nx=nextSession(p);
+  if(isSem(p))h+=hojeSemana(p);else{
   if(nx){const fotos=nx.exercises.map(e=>{const k=midiaKey(e);return k&&fotoDe(k,0)}).filter(Boolean).slice(0,3);
     h+=`<div class="card today">${fotos.length?`<div class="tstrip" style="grid-template-columns:repeat(${fotos.length},minmax(0,1fr))">${fotos.map(u=>`<img src="${u}" alt="" loading="lazy">`).join('')}</div>`:''}<div class="tbody"><div class="eyb">${S.logs.some(L=>L.date===iso(new Date()))?'PRÓXIMO TREINO':'TREINO DE HOJE'}</div><div class="tname">${LETRA(p.sessions.indexOf(nx))} · ${esc(nx.name)}</div><div class="mu sm">${nx.exercises.length} exercício${nx.exercises.length===1?'':'s'}${nx.duration?' · '+esc(nx.duration):''}${nx.groups?' · '+esc(nx.groups):''}</div>
       <button class="btn pri block big" data-act="start" data-id="${nx.id}" style="margin-top:10px">▶ Começar treino</button>${curtoOn(S.lib)?`<button class="btn block" data-act="startShort" data-id="${nx.id}" style="margin-top:8px">⏱ Tenho pouco tempo</button>`:''}<button class="lnk" data-act="go" data-v="session" data-id="${nx.id}" data-pid="${p.id}" style="align-self:center">Ver exercícios antes</button></div></div>`;
@@ -290,6 +331,7 @@ VIEWS.hoje=function(){
   h+=`<div class="card"><div class="row"><b class="sp">Esta semana</b><span class="mu sm">${done.size} de ${p.sessions.length} feito${done.size===1?'':'s'}</span></div>
     <div class="wkt" style="grid-template-columns:repeat(${Math.min(p.sessions.length,6)},minmax(0,1fr))">${p.sessions.map((x,i)=>{const st=done.has(x.id)?'done':(nx&&x.id===nx.id?'now':'');return`<button class="${st}" data-act="go" data-v="session" data-id="${x.id}" data-pid="${p.id}" aria-label="${esc(x.name)}"><b>${LETRA(i)}</b><span>${st==='done'?'feito ✓':st==='now'?'hoje':'depois'}</span></button>`}).join('')}</div>
     ${done.size&&nx?`<div style="text-align:right;margin-top:6px"><button class="btn ghost smb" data-act="advWeek" style="color:var(--mu)">Encerrar semana ${w} ›</button></div>`:''}</div>`;
+  }
   {let k=0;const tot=weeksOf(p);h+=`<div class="card"><div class="row"><b class="sp">${esc(p.name)}</b><span class="mu sm">semana ${w} de ${tot}</span></div>
     <div class="phbar">${p.phases.map(f=>{const a=k;k+=f.weeks;const pct=w>k?100:w<=a?0:Math.round(100*(w-a-0.5)/f.weeks);return`<i class="pc-${esc(f.color||'acu')}" style="flex:${f.weeks}"><s style="width:${pct}%"></s></i>`}).join('')}</div>
     <p class="sm" style="margin:8px 0 0"><b class="phn pc-${esc(ph.color||'acu')}">Fase ${p.phases.indexOf(ph)+1} · ${esc(ph.name)}.</b> ${esc(weekFocus(p,w)||'')} ${esc(sobraTxt(ph.rir))}</p></div>`}
@@ -341,7 +383,7 @@ function viewWorkout(){
   h+=`<label class="f"><span>Observações do treino</span><textarea id="wnote" rows="2" data-wnote="1">${esc(A.note||'')}</textarea></label>
     <button class="btn pri block" data-act="finish">Finalizar treino</button><div style="height:10px"></div><button class="btn block" data-act="discard" style="color:var(--bad)">Descartar treino</button>`;
   return h}
-function startWorkout(id,opt){const A=buildActive(id);if(!A)return;if(opt&&opt.min)shortenActive(A,opt.min,opt.mode);S.active=A;
+function startWorkout(id,opt){const A=buildActive(id);if(!A)return;{const p=myActive();if(isSem(p)){A.day=SEMDAY!=null?SEMDAY:semDayOf(p,id)}SEMDAY=null}if(opt&&opt.min)shortenActive(A,opt.min,opt.mode);S.active=A;
   save();V.tab='hoje';V.stack=[];render();scrollTo(0,0);wake()}
 function buildActive(id){const p=myActive();const s=sessIn(p,id);if(!s)return null;const w=clampW(progOf(p).week,p);
   return{id:'L'+Date.now(),planId:p.id,planName:p.name,round:progOf(p).round||1,sessionId:id,name:s.name,date:iso(new Date()),week:w,startedAt:Date.now(),note:'',
@@ -420,12 +462,13 @@ function finishWorkout(){const A=S.active;
   const ex=A.exercises.filter(exHasData).map(x=>{const o={exId:x.exId,cat:x.cat,name:x.name,kind:x.kind};
     if(x.kind==='cardio'){o.cardio=x.cardio;o.done=true;o.sets=[]}else if(x.kind==='wod'){o.wod=x.wod;o.done=true;o.sets=[]}
     else o.sets=x.sets.filter(s=>s.done).map(s=>{const o2={kg:s.kg,reps:s.reps,rir:s.rir,sec:s.sec};if(s.t&&s.t!=='v')o2.t=s.t;return o2});return o});
-  const L={id:A.id,planId:A.planId,planName:A.planName,round:A.round||1,sessionId:A.sessionId,name:A.name,date:A.date,week:A.week,startedAt:A.startedAt,finishedAt:Date.now(),durationSec:Math.round(elapsedMs(A)/1000),note:A.note||'',exercises:ex};if(A.short)L.short={min:A.short.min,mode:A.short.mode};{const fb=readFb();if(fb)L.fb=fb}
+  const L={id:A.id,planId:A.planId,planName:A.planName,round:A.round||1,sessionId:A.sessionId,name:A.name,date:A.date,week:A.week,startedAt:A.startedAt,finishedAt:Date.now(),durationSec:Math.round(elapsedMs(A)/1000),note:A.note||'',exercises:ex};if(A.day!=null)L.day=A.day;if(A.short)L.short={min:A.short.min,mode:A.short.mode};{const fb=readFb();if(fb)L.fb=fb}
   S.logs.push(L);markLog(L.id);sortLogs();S.active=null;T=null;let msg='Treino salvo 💪';
   const p=planById(L.planId,S.lib);
   const filled=fillPlanFromLog(p,L);
   if(p&&p.id===S.lib.activeId){const pr=progOf(p),N=weeksOf(p);
-    if(pr.week<=N&&p.sessions.every(s=>doneThisWeek(p).has(s.id))){pr.week++;
+    if(isSem(p)){const W=semWeek(p);if(W.days.some(o=>o.sid)&&W.days.every(o=>o.st==='rest'||o.st==='done'))msg='Semana completa! 🎉 Todos os treinos da semana feitos'}
+    else if(pr.week<=N&&p.sessions.every(s=>doneThisWeek(p).has(s.id))){pr.week++;
       if(pr.week>N){if(p.repeat){pr.week=1;pr.round=(pr.round||1)+1;msg=`Bloco concluído! 🎉 ${p.name} recomeça na semana 1`}else msg=`Semana ${N} concluída — plano completo! 🎉`}
       else msg=`Semana ${pr.week-1} concluída! 🎉 Agora: semana ${pr.week} · ${phaseAt(p,pr.week).name}`}}
   const kc=workoutKcal(L);if(kc&&kc.total)msg+=' · '+kcalTxt(kc);
@@ -455,6 +498,15 @@ VIEWS.planos=function(){const lib=LIB(),u=U(),own=!u;
   if(fin.length)h+=`<h3>Finalizados</h3><div class="card" style="padding:4px 14px">${fin.map(row).join('')}</div>`;
   h+=`<div style="height:12px"></div><button class="btn pri block" data-act="go" data-v="montar" ${ua()}>Montar em 3 perguntas</button><div style="height:8px"></div><button class="btn block" data-act="newPlan" ${ua()}>+ Novo plano (avançado)</button>`;
   return h};
+function modeHTML(p){const sem=isSem(p);let h=`<h3>Como o treino se organiza</h3><div class="seg">${[['semana','Por dia da semana'],['ciclo','Por ciclo (A, B, C…)']].map(([k,l])=>`<button class="${(sem?'semana':'ciclo')===k?'on':''}" data-act="planMode" data-m="${k}" data-pid="${p.id}" ${ua()}>${l}</button>`).join('')}</div>
+  <p class="mu xs" style="margin:6px 2px 0">${sem?'Cada dia da semana tem seu treino. A semana do plano segue o calendário.':'Para alunos avançados: os treinos seguem em sequência e a semana avança quando todos forem feitos, em qualquer dia.'}</p>`;
+  if(!sem)return h;const g=gradeOf(p);
+  h+=`<h3>Semana do aluno</h3><p class="mu sm" style="margin:-4px 0 0">A mesma grade vale para todas as semanas. Treino atrasado pode ser feito ou pulado até domingo; depois fica como perdido.</p><div class="card" style="padding:4px 14px">${g.map((sid,d)=>{const s=sid&&sessIn(p,sid);
+    return`<div class="li"><span class="pill" style="min-width:44px;text-align:center">${DSEM[d]}</span><div class="t">${sel('',[['','Descanso']].concat(p.sessions.map((x,i)=>[x.id,LETRA(i)+' · '+x.name])).concat([['+new','＋ Novo treino'],['+copy','⧉ Copiar de outro dia']]),sid||'',`data-grd="${d}" data-pid="${p.id}" ${ua()} aria-label="Treino de ${DSEML[d]}"`)}</div>${s?`<button class="ib" data-act="go" data-v="session" data-id="${s.id}" data-pid="${p.id}" ${ua()} aria-label="Ver treino de ${DSEML[d]}">›</button>`:''}</div>`}).join('')}</div>`;
+  const sem0=p.sessions.filter(x=>!g.includes(x.id));if(sem0.length)h+=`<p class="mu xs" style="margin:-4px 2px 8px">Sem dia na semana: ${sem0.map(x=>esc(x.name)).join(', ')}.</p>`;
+  return h}
+function grdCopy(p,d){const g=gradeOf(p),src=g.map((sid,k)=>[k,sid]).filter(([k,sid])=>sid&&k!==d);if(!src.length){toast('Nenhum outro dia tem treino ainda');render();return}
+  modal('Copiar para '+DSEML[d],`<p class="sm mu" style="margin-top:0">Cria uma cópia separada: dá para mudar a de ${DSEML[d]} sem alterar a original.</p><div class="card" style="padding:4px 14px">${src.map(([k,sid])=>`<div class="li tap" data-act="grdCopyGo" data-from="${k}" data-to="${d}" data-pid="${p.id}" ${ua()}><span class="pill" style="min-width:44px;text-align:center">${DSEM[k]}</span><div class="t"><b>${esc(sessIn(p,sid).name)}</b></div><span class="mu">›</span></div>`).join('')}</div>`,[{label:'Cancelar',fn:render}])}
 VIEWS.plan=function({id}){const p=planById(id);if(!p)return hdr('Plano','',true)+'<div class="empty">Não encontrado</div>';
   const lib=LIB(),own=!U(),isAct=lib.activeId===p.id,N=weeksOf(p),w=own?progOf(p).week:0;
   let h=hdr(p.name,p.tpl?`Modelo · ${tplLabel(p)}`:`${N} semanas · ${p.sessions.length} treinos/semana${isAct?' · <b class="ok">ativo</b>':''}`,true);
@@ -462,7 +514,9 @@ VIEWS.plan=function({id}){const p=planById(id);if(!p)return hdr('Plano','',true)
   if(!isTpl)h+=`<div class="row wrap" style="margin-bottom:6px">${isAct?'':`<button class="btn pri smb" data-act="activatePlan" data-pid="${p.id}" ${ua()}>Tornar ativo</button>`}<button class="btn smb" data-act="dupPlan" data-pid="${p.id}" ${ua()}>Duplicar</button><button class="btn smb" data-act="delPlan" data-pid="${p.id}" ${ua()} style="color:var(--bad)">Excluir</button></div>`;
   h+=`<div class="card"><label class="f" style="margin-top:0"><span>Nome do plano</span><input data-plf="name" data-pid="${p.id}" value="${esc(p.name)}"></label>
     ${p.tpl?'':`<div class="sw"><span>Repetir automaticamente ao terminar<div class="mu xs">Bom para planos de manutenção contínua</div></span><input type="checkbox" data-plf="repeat" data-pid="${p.id}" ${p.repeat?'checked':''}></div>`}</div>`;
-  h+=`<h3>Treinos da semana (sequência)</h3><p class="mu sm" style="margin:-4px 0 0">A semana avança quando todos forem feitos. Para treinar 3×/semana, deixe 3 treinos.</p><div class="card" style="padding:4px 14px">${p.sessions.length?'':'<div class="li mu sm">Nenhum treino ainda.</div>'}${p.sessions.map((s,i,a)=>`<div class="li"><span class="pill" style="min-width:30px;text-align:center">${i+1}</span><div class="t tap" data-act="go" data-v="session" data-id="${s.id}" data-pid="${p.id}" ${ua()}><b>${esc(s.name)}</b><span class="mu sm">${esc(s.groups||'')}${s.groups?' · ':''}${s.exercises.length} exerc.</span></div><button class="ib" data-act="moveSess" data-pid="${p.id}" data-i="${i}" data-d="-1" ${i?'':'disabled style="opacity:.3"'}>↑</button><button class="ib" data-act="moveSess" data-pid="${p.id}" data-i="${i}" data-d="1" ${i<a.length-1?'':'disabled style="opacity:.3"'}>↓</button></div>`).join('')}</div>
+  if(!isTpl)h+=modeHTML(p);
+  h+=isSem(p)&&!isTpl?`<h3>Treinos do plano</h3><p class="mu sm" style="margin:-4px 0 0">Os treinos que entram na semana acima. Toque para ver ou editar.</p>`:`<h3>Treinos da semana (sequência)</h3><p class="mu sm" style="margin:-4px 0 0">A semana avança quando todos forem feitos. Para treinar 3×/semana, deixe 3 treinos.</p>`;
+  h+=`<div class="card" style="padding:4px 14px">${p.sessions.length?'':'<div class="li mu sm">Nenhum treino ainda.</div>'}${p.sessions.map((s,i,a)=>`<div class="li"><span class="pill" style="min-width:30px;text-align:center">${i+1}</span><div class="t tap" data-act="go" data-v="session" data-id="${s.id}" data-pid="${p.id}" ${ua()}><b>${esc(s.name)}</b><span class="mu sm">${esc(s.groups||'')}${s.groups?' · ':''}${s.exercises.length} exerc.</span></div><button class="ib" data-act="moveSess" data-pid="${p.id}" data-i="${i}" data-d="-1" ${i?'':'disabled style="opacity:.3"'}>↑</button><button class="ib" data-act="moveSess" data-pid="${p.id}" data-i="${i}" data-d="1" ${i<a.length-1?'':'disabled style="opacity:.3"'}>↓</button></div>`).join('')}</div>
     <button class="btn block" data-act="addSess" data-pid="${p.id}" ${ua()}>+ Adicionar treino</button>`;
   if(isTpl)return h;if(!ADV())h+=`<details style="margin-top:14px"><summary>⚙️ Opções avançadas: fases e progressão de cargas</summary>`;let k=0;h+=`<h3>Periodização — ${N} semanas</h3><div class="card" style="padding:8px 10px"><table><tr><th>Sem</th><th>Fase</th><th>RIR</th><th>Séries</th></tr>${p.phases.map(ph=>Array.from({length:ph.weeks},()=>{k++;return`<tr class="pc-${esc(ph.color)} ${k===w?'cur':''}"><td><b>${k}</b></td><td><span class="ph-dot"></span>${esc(ph.name)}${weekFocus(p,k)?`<div class="mu xs">${esc(weekFocus(p,k))}</div>`:''}</td><td>${esc(ph.rir||'—')}</td><td>${Math.round((+ph.vol||1)*100)}%</td></tr>`}).join('')).join('')}</table>
     <div style="height:8px"></div><button class="btn block" data-act="go" data-v="phases" data-id="${p.id}" ${ua()}>Editar periodização</button></div>`;
@@ -625,11 +679,12 @@ function bestInRange(itemId,planId,e,p){const[lo]=range(e.reps);let best=null;S.
 Object.assign(ACT,{
   newPlan:()=>{const lib=LIB();const G=(window.MODELOS&&MODELOS.GOALS)||{};const T=tplPlans();
     const src=[['blank','Em branco (eu monto)']].concat(T.map(t=>['m:'+t.tpl.id,'Modelo: '+tplLabel(t)+' — '+t.name])).concat(lib.plans.map(p=>[p.id,'Copiar treinos de: '+p.name])).concat(U()&&myActive()?[['mine','Copiar treinos do MEU plano ativo']]:[]);
-    modal('Novo plano',`<label class="f"><span>Nome</span><input id="npName" placeholder="ex: Hipertrofia 2027 — Bloco 1"></label><label class="f"><span>Objetivo</span>${sel('',Object.entries(G).map(([k,g])=>[k,g.name]),'massa','id="npGoal"')}</label><label class="f"><span>Treinos</span>${sel('',src,'blank','id="npSrc"')}</label><label class="f"><span>Periodização</span><select id="npTpl"><option value="auto">Automática pelo objetivo</option>${Object.entries(PERIOD_TEMPLATES).map(([k,t])=>`<option value="${k}">${esc(t.name)}</option>`).join('')}</select></label><p class="mu xs">O objetivo ajusta séries, repetições e descanso dos modelos. Depois você pode trocar exercícios, cargas e repetições à vontade.</p>`,
+    modal('Novo plano',`<label class="f"><span>Nome</span><input id="npName" placeholder="ex: Hipertrofia 2027 — Bloco 1"></label><label class="f"><span>Objetivo</span>${sel('',Object.entries(G).map(([k,g])=>[k,g.name]),'massa','id="npGoal"')}</label><label class="f"><span>Organização</span>${sel('',[['semana','Por dia da semana (padrão)'],['ciclo','Por ciclo A, B, C… (avançado)']],'semana','id="npMode"')}</label><label class="f"><span>Treinos</span>${sel('',src,'blank','id="npSrc"')}</label><label class="f"><span>Periodização</span><select id="npTpl"><option value="auto">Automática pelo objetivo</option>${Object.entries(PERIOD_TEMPLATES).map(([k,t])=>`<option value="${k}">${esc(t.name)}</option>`).join('')}</select></label><p class="mu xs">O objetivo ajusta séries, repetições e descanso dos modelos. Depois você pode trocar exercícios, cargas e repetições à vontade.</p>`,
     [{label:'Cancelar'},{label:'Criar',cls:'pri',fn:()=>{const gk=$('#npGoal').value,pv=$('#npTpl').value,per=pv==='auto'?((G[gk]||{}).period||'hip12'):pv,sv=$('#npSrc').value,nm=$('#npName').value.trim();let p;
       if(sv.startsWith('m:')){const tp=T.find(t=>t.tpl.id===sv.slice(2));p=planFromTpl(tp,nm||(tp.name.split(' · ')[0]+' · '+((G[gk]||{}).name||'')),gk,per)}
       else{p=newPlan(nm||'Novo plano',per);const q=sv==='mine'?myActive():sv!=='blank'?planById(sv,lib):null;
         if(q){p.sessions=clone(q.sessions);if(sv!=='mine'){p.tips=clone(q.tips||[]);p.nutrition=clone(q.nutrition||[])}p.sessions.forEach(s=>s.exercises.forEach(e=>{if(usesLoad(e))e.plan=e.base!=null?genPlan(e.base,e.inc,p):Array(weeksOf(p)).fill(null)}))}}
+      if($('#npMode').value==='ciclo')delete p.mode;else p.mode='semana';
       lib.plans.push(p);if(!planById(lib.activeId,lib))lib.activeId=p.id;psave();go('plan',{id:p.id,uid:U()});toast('Plano criado')}}])},
   activatePlan:d=>{const lib=LIB(),p=planOf(d);const done=()=>{lib.activeId=p.id;psave();render();toast(p.name+' agora é o plano ativo')};
     if(!U()&&S.prog[p.id]&&S.prog[p.id].week>1)modal('Tornar ativo',`Você já tinha avançado até a semana ${S.prog[p.id].week} neste plano.`,[{label:'Recomeçar na S1',fn:()=>{S.prog[p.id]={week:1,round:(S.prog[p.id].round||1)+1};done()}},{label:'Continuar',cls:'pri',fn:done}]);
@@ -1069,7 +1124,7 @@ VIEWS.treinos=function(){const p=myActive();
   if(!p)return h+`<div class="card hero"><h2>Você ainda não tem um treino</h2><p class="mu sm">Responda 3 perguntas e o app monta o seu treino. Ou crie do zero, se preferir.${ME.role!=='master'?' Seu treinador também pode montar para você.':''}</p><button class="btn pri block" data-act="go" data-v="montar">Montar meu treino</button><div style="height:8px"></div><button class="btn block" data-act="newPlan">Criar do zero</button><div style="height:8px"></div><button class="btn ghost block" data-act="go" data-v="planos">Ver meus planos</button></div>`;
   const w=progOf(p).week,N=weeksOf(p),done=doneThisWeek(p),nx=nextSession(p);
   h+=`<div class="card"><div class="row"><div class="sp"><div class="mu xs b">MEU TREINO ATUAL</div><div class="b" style="font-size:18px">${esc(p.name)}</div><div class="mu sm">${w>N?'Concluído':'Semana '+w+' de '+N} · ${p.sessions.length} treino${p.sessions.length===1?'':'s'} por semana</div></div>${w<=N?phPill(p,w):''}</div>${weekbar(p,w)}
-    <div style="margin-top:6px">${p.sessions.map((x,i)=>`<div class="li tap" data-act="go" data-v="session" data-id="${x.id}" data-pid="${p.id}"><span class="pill" style="min-width:30px;text-align:center">${String.fromCharCode(65+i)}</span><div class="t"><b>${esc(x.name)}</b><span class="mu sm">${x.exercises.length} exercício${x.exercises.length===1?'':'s'}${x.groups?' · '+esc(x.groups):''}</span></div>${done.has(x.id)?'<span class="ok sm b">feito ✓</span>':nx&&nx.id===x.id?'<span class="pill" style="background:var(--ac);color:#fff">próximo</span>':''}<span class="mu">›</span></div>`).join('')||'<div class="li mu sm">Nenhum treino ainda.</div>'}</div></div>
+    <div style="margin-top:6px">${p.sessions.map((x,i)=>`<div class="li tap" data-act="go" data-v="session" data-id="${x.id}" data-pid="${p.id}"><span class="pill" style="min-width:30px;text-align:center">${String.fromCharCode(65+i)}</span><div class="t"><b>${esc(x.name)}</b><span class="mu sm">${isSem(p)?(d=>d.length?'<b>'+d.join(', ')+'</b> · ':'sem dia · ')(gradeOf(p).map((g,k)=>g===x.id?DSEM[k]:null).filter(Boolean)):''}${x.exercises.length} exercício${x.exercises.length===1?'':'s'}${x.groups?' · '+esc(x.groups):''}</span></div>${done.has(x.id)?'<span class="ok sm b">feito ✓</span>':nx&&nx.id===x.id?'<span class="pill" style="background:var(--ac);color:#fff">próximo</span>':''}<span class="mu">›</span></div>`).join('')||'<div class="li mu sm">Nenhum treino ainda.</div>'}</div></div>
     <div class="grid2"><button class="btn" data-act="addSess" data-pid="${p.id}">+ Adicionar treino</button><button class="btn" data-act="go" data-v="planos">Planos de treino</button></div>
     <div style="height:8px"></div><button class="btn block" data-act="go" data-v="plan" data-id="${p.id}">⚙️ Configurar plano${ADV()?' (fases e cargas)':''}</button>`;
   return h};
@@ -1741,8 +1796,8 @@ Object.assign(ACT,{
   _back:()=>{const t=V.stack.pop();if(t&&t.params&&t.params.uid&&!V.stack.some(x=>x.params&&x.params.uid)&&MANAGE&&MANAGE.dirty)saveManaged();render()},
   go:d=>{if(d.v==='picker'){PK.q='';PK.cat=d.mode==='insert'?'Crossfit':'';PK.grp=''}go(d.v,{id:d.id,pid:d.pid,sid:d.sid,eid:d.eid,mode:d.mode,uid:d.uid||''})},
   openLog:d=>go('log',{id:d.id}),
-  startShort:d=>openShort(d.id),
-  start:d=>{if(S.active){if(S.active.sessionId===d.id){V.tab='hoje';V.stack=[];render();return}confirmBox('Treino em andamento',`Você tem <b>${esc(S.active.name)}</b> em andamento. Descartar e iniciar outro?`,'Descartar e iniciar',()=>{S.active=null;startWorkout(d.id)},true);return}startWorkout(d.id)},
+  startShort:d=>{SEMDAY=d.day!=null&&d.day!==''?+d.day:null;openShort(d.id)},
+  start:d=>{SEMDAY=d.day!=null&&d.day!==''?+d.day:null;if(S.active){if(S.active.sessionId===d.id){V.tab='hoje';V.stack=[];render();return}const sd=SEMDAY;confirmBox('Treino em andamento',`Você tem <b>${esc(S.active.name)}</b> em andamento. Descartar e iniciar outro?`,'Descartar e iniciar',()=>{S.active=null;SEMDAY=sd;startWorkout(d.id)},true);return}startWorkout(d.id)},
   setTheme:d=>{try{localStorage.setItem(THEME_KEY,d.t)}catch(e){}applyTheme();render()},
   setDone:d=>{audio();const ax=S.active.exercises[+d.i],s=ax.sets[+d.j];
     document.querySelectorAll(`[data-wf][data-i="${d.i}"][data-j="${d.j}"]`).forEach(el=>s[el.dataset.wf]=num(el.value));
@@ -1786,7 +1841,10 @@ Object.assign(ACT,{
   testSound:()=>{audio();beep('warn');setTimeout(()=>beep('end'),900)},
   advWeek:()=>{const p=myActive(),pr=progOf(p),done=doneThisWeek(p),miss=p.sessions.filter(s=>!done.has(s.id)).map(s=>esc(s.name));const N=weeksOf(p);
     confirmBox(`Encerrar semana ${pr.week}`,`<p>Ir para a <b>semana ${pr.week+1}</b>${pr.week<N?' ('+esc(phaseAt(p,pr.week+1).name)+')':''} sem fazer: ${miss.join(', ')||'—'}?</p>`,'Avançar semana',()=>{pr.week++;if(pr.week>N&&p.repeat){pr.week=1;pr.round=(pr.round||1)+1}save();render();toast(pr.week>N?'Plano concluído':'Semana '+pr.week+' · '+phaseAt(p,pr.week).name)})},
-  shiftWeek:d=>{const p=myActive();if(!p)return;const pr=progOf(p);pr.week=Math.min(weeksOf(p)+1,Math.max(1,pr.week+(+d.d)));save();render()},
+  planMode:d=>{const p=planOf(d);if(!p)return;if(d.m==='semana'){p.mode='semana';p.grade=gradeOf(p)}else{delete p.mode}psave();render();toast(d.m==='semana'?'Agora por dia da semana':'Agora por ciclo (sequência)')},
+  grdCopyGo:d=>{const p=planOf(d);const g=gradeOf(p),s0=sessIn(p,g[+d.from]);if(!s0)return;const c=clone(s0);c.id=uid36('s');c.name=s0.name+' ('+DSEM[+d.to]+')';c.exercises.forEach(e=>e.id=uid36('e'));p.sessions.push(c);g[+d.to]=c.id;p.grade=g;$('#modal').hidden=true;psave();render();toast('Copiado para '+DSEML[+d.to])},
+  semSkip:d=>{const p=myActive();if(!p)return;const W=semWeek(p),o=W.days[+d.day];if(!o||!o.s)return;confirmBox('Pular treino',`Pular <b>${esc(o.s.name)}</b> de ${DSEML[o.d]}? Ele sai dos pendentes e, no fim da semana, fica registrado como perdido.`,'Pular',()=>{const pr=progOf(p);pr.skip=(pr.skip||[]).filter(k=>k>=addDays(W.mon,-28)).concat(W.mon+':'+o.d);save();render();toast('Treino pulado')})},
+  shiftWeek:d=>{const p=myActive();if(!p)return;const pr=progOf(p);if(isSem(p)){semSync(p);pr.start=addDays(pr.start,-7*(+d.d));semSync(p);save();render();return}pr.week=Math.min(weeksOf(p)+1,Math.max(1,pr.week+(+d.d)));save();render()},
   delLog:d=>confirmBox('Excluir registro','Este treino será removido do histórico.','Excluir',()=>{const L0=S.logs.find(L=>L.id===d.id);S.logs=S.logs.filter(L=>L.id!==d.id);if(L0){S._sync.dirtyLogs=S._sync.dirtyLogs.filter(x=>x!==d.id);S._sync.delLogs.push({id:L0.id,date:L0.date})}save();V.stack.pop();render()},true),
   exportJSON:()=>{if(!ME||ME.role!=='master')return;share(`treino-backup-${iso(new Date())}.json`,JSON.stringify(Object.assign({},S,{_sync:undefined})),'application/json');S.settings.lastBackup=Date.now();save();setTimeout(render,500)},
   importJSON:()=>ME&&ME.role==='master'&&$('#importFile').click(),
@@ -1827,6 +1885,9 @@ document.addEventListener('change',ev=>{const t=ev.target,d=t.dataset;
   if(t.id==='exSel'){S.settings.progEx=t.value;save();if($('#evo'))$('#evo').innerHTML=evoBody(t.value);else render();return}
   if(t.id==='pkGrp'){PK.grp=t.value;refreshPicker();return}
   if(d.libopt){const L=LIB();L.opts=Object.assign({},L.opts,{[d.libopt]:t.checked});psave();toast(t.checked?'Ativado: aparece nos próximos treinos':'Desativado');return}
+  if(d.grd!=null&&d.grd!==''){const p=planOf(d),k=+d.grd,g=gradeOf(p);if(t.value==='+copy'){grdCopy(p,k);return}
+    if(t.value==='+new'){const id=uid36('s');p.sessions.push({id,name:'Treino de '+DSEML[k],groups:'',duration:'',notes:'',cardio:'',exercises:[]});g[k]=id;p.grade=g;psave();go('sessedit',{id,pid:p.id,uid:U()});return}
+    g[k]=t.value||null;p.grade=g;psave();render();return}
   if(d.plf){const p=planOf(d);p[d.plf]=t.type==='checkbox'?t.checked:t.value;psave();return}
   if(d.phf){const p=planOf(d),ph=p.phases[+d.k],f=d.phf;let v=t.value;
     if(f==='weeks'||f==='hold'){v=Math.round(num(v)??0);if(f==='weeks'&&(v<1||v>52)){toast('Semanas: entre 1 e 52');render();return}if(v<0)v=0}
