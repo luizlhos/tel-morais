@@ -325,3 +325,10 @@ html[data-theme=light] .av:not(.sm){color:#fff}
 .sg4.st-b input{border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
 .sg4.st-d>span:first-child{font-size:11px;color:var(--ac2)}
 .sg4.st-d input{border-color:color-mix(in srgb,var(--ac) 40%,transparent)}
+/* v2 — plano por dia da semana */
+.wkt.wk7{grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.wkt.wk7 button{padding:7px 2px}.wkt.wk7 button b{font-size:13px}.wkt.wk7 button span{font-size:10px}
+.wkt button.rest{opacity:.45;cursor:default}
+.wkt button.late{border:1.5px solid var(--warn)}.wkt button.late span{color:var(--warn);font-weight:700}
+.wkt button.skip span{color:var(--mu);text-decoration:line-through}
+.card.late{border-left:4px solid var(--warn)}
