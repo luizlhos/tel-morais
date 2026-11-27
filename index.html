@@ -546,7 +546,7 @@ function sessionsFromRaw(t,p){if(!t)return[];
     it.sets=sets;it.reps=reps;it.restSec=rest;it.rest=rest>=120?(rest/60)+' min':rest+' s';it.rir=it.kind==='time'||c.cat==='Core'?'':'RIR 2';return it}})}))}
 
 "use strict";
-const APP_VERSION='1.4.0';
+const APP_VERSION='1.5.0';
 /* ---------- tema (preferência do aparelho) ---------- */
 const THEME_KEY='telm.theme';const MQ_DARK=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
 function themePref(){try{return localStorage.getItem(THEME_KEY)||'dark'}catch(e){return'dark'}}
@@ -804,7 +804,7 @@ VIEWS.hoje=function(){
   if(nx){h+=`<h3>Próximo treino</h3><div class="card hero"><div class="row"><div class="sp"><h2>${esc(nx.name)}</h2><div class="mu sm">${esc(nx.groups||'')}</div></div>${nx.duration?`<span class="pill">${esc(nx.duration)}</span>`:''}</div>
       <ul class="exl">${nx.exercises.map(e=>{const[a,b]=itemTarget(e,p,w);return`<li><span>${KIND_ICON[e.kind]||''} ${esc(e.name)} <span class="mu sm">${a}</span></span><span>${b}</span></li>`}).join('')}</ul>
       ${nx.notes?`<div class="mu sm" style="margin-top:8px">📌 ${esc(nx.notes)}</div>`:''}${nx.cardio?`<div class="mu sm" style="margin-top:4px">🏃 ${esc(nx.cardio)}</div>`:''}
-      <div style="margin-top:12px"><button class="btn pri block" data-act="start" data-id="${nx.id}">Iniciar treino</button></div></div>`}
+      <div style="margin-top:12px"><button class="btn pri block" data-act="start" data-id="${nx.id}">Iniciar treino</button>${curtoOn(S.lib)?`<div style="height:8px"></div><button class="btn block" data-act="startShort" data-id="${nx.id}">⏱ Tenho pouco tempo</button>`:''}</div></div>`}
   const others=p.sessions.filter(x=>x!==nx);
   if(others.length)h+=`<h3>Outro treino</h3><div class="others">${others.map(x=>`<button data-act="start" data-id="${x.id}">${esc(x.name)}<small>${x.exercises.length} exerc.${done.has(x.id)?' · <span class="ok">✓ feito</span>':''}</small></button>`).join('')}</div>`;
   return h};
@@ -812,7 +812,7 @@ VIEWS.hoje=function(){
 /* ---------- TREINO EM ANDAMENTO ---------- */
 function viewWorkout(){
   const A=S.active,p=planById(A.planId,S.lib)||myActive(),w=A.week,ph=p?phaseAt(p,w):{name:'',rir:''},N=p?weeksOf(p):w;
-  let h=`<div class="wk-h"><div class="row"><div class="sp" style="min-width:0"><h1 style="font-size:24px">${esc(A.name)}</h1><div class="mu sm">Sem ${w}/${N} · ${esc(ph.name)} · RIR ${esc(ph.rir||'—')} · <span id="elapsed">${mmss(elapsedMs(A)/1000)}</span>${bmrOf(bodyOf(),A.date)?` · 🔥 <span id="kcal">${kcalTxt(workoutKcal(A,null,true))||'~0 kcal'}</span>`:''}${A.pausedAt?' <b style="color:var(--warn)">pausado</b>':''}</div></div><button class="ib" data-act="pauseW" aria-label="${A.pausedAt?'Retomar':'Pausar'} cronômetro" style="width:40px;height:38px;font-size:18px;${A.pausedAt?'background:var(--warn);color:#201500':''}">${A.pausedAt?'▶':'⏸'}</button><button class="btn pri smb" data-act="finish">Finalizar</button></div></div>`;
+  let h=`<div class="wk-h"><div class="row"><div class="sp" style="min-width:0"><h1 style="font-size:24px">${esc(A.name)}</h1><div class="mu sm">Sem ${w}/${N} · ${esc(ph.name)} · RIR ${esc(ph.rir||'—')} · <span id="elapsed">${mmss(elapsedMs(A)/1000)}</span>${bmrOf(bodyOf(),A.date)?` · 🔥 <span id="kcal">${kcalTxt(workoutKcal(A,null,true))||'~0 kcal'}</span>`:''}${A.pausedAt?' <b style="color:var(--warn)">pausado</b>':''}${A.short?` · <b class="ac">⏱ curto ${A.short.min} min</b>`:''}</div></div><button class="ib" data-act="pauseW" aria-label="${A.pausedAt?'Retomar':'Pausar'} cronômetro" style="width:40px;height:38px;font-size:18px;${A.pausedAt?'background:var(--warn);color:#201500':''}">${A.pausedAt?'▶':'⏸'}</button><button class="btn pri smb" data-act="finish">Finalizar</button></div></div>`;
   A.exercises.forEach((ax,i)=>{const f=p&&exIn(p,ax.exId),e=f?f.e:Object.assign({name:ax.name,kind:ax.kind,reps:'',rir:'',rest:'',why:''},defaultsFor(ax.kind));
     const lp=lastPerf(ax.exId,A.id),all=exDone(ax),k=ax.kind,pl=usesLoad(e)?planFor(e,w):null;
     const right=k==='cardio'||k==='wod'||(k==='time'&&pl==null)?`<span class="kd">${KIND_ICON[k]}</span>`:`<div class="kg">${k==='bw'?'Lastro':'Plano'}<b>${pl!=null?fkg(pl)+' kg':(k==='bw'?'PC':'—')}</b></div>`;
@@ -846,15 +846,51 @@ function viewWorkout(){
   h+=`<label class="f"><span>Observações do treino</span><textarea id="wnote" rows="2" data-wnote="1">${esc(A.note||'')}</textarea></label>
     <button class="btn pri block" data-act="finish">Finalizar treino</button><div style="height:10px"></div><button class="btn block" data-act="discard" style="color:var(--bad)">Descartar treino</button>`;
   return h}
-function startWorkout(id){const p=myActive();const s=sessIn(p,id);if(!s)return;const w=clampW(progOf(p).week,p);
-  S.active={id:'L'+Date.now(),planId:p.id,planName:p.name,round:progOf(p).round||1,sessionId:id,name:s.name,date:iso(new Date()),week:w,startedAt:Date.now(),note:'',
+function startWorkout(id,opt){const A=buildActive(id);if(!A)return;if(opt&&opt.min)shortenActive(A,opt.min,opt.mode);S.active=A;
+  save();V.tab='hoje';V.stack=[];render();scrollTo(0,0);wake()}
+function buildActive(id){const p=myActive();const s=sessIn(p,id);if(!s)return null;const w=clampW(progOf(p).week,p);
+  return{id:'L'+Date.now(),planId:p.id,planName:p.name,round:progOf(p).round||1,sessionId:id,name:s.name,date:iso(new Date()),week:w,startedAt:Date.now(),note:'',
     exercises:s.exercises.map((e,ei)=>{const lp=lastPerf(e.id);const ax={exId:e.id,cat:e.cat||null,name:e.name,kind:e.kind||'load',sets:[],open:false,done:false,link:!!e.link&&ei<s.exercises.length-1};
       if(ax.kind==='cardio')ax.cardio={min:null,km:null,zone:null,kcal:null};
       else if(ax.kind==='wod')ax.wod={format:(e.wod||{}).format||'AMRAP',rounds:null,reps:null,time:null,capped:false,kg:null,rx:true};
       else{const pl=planFor(e,w);const kg=pl??(lp?topKg(lp.ex):null);ax.sets=Array.from({length:setsFor(e,p,w)},()=>({kg:ax.kind==='bw'?(pl??null):kg,reps:null,rir:null,sec:null,done:false}));
         if(ax.kind==='load'&&(prepOn(S.lib)||metOn(S.lib))){const ts=prepOn(S.lib)?typedSets(e,s,kg):{pre:[],post:[]};const dr=metOn(S.lib)&&e.met==='drop'?dropSets(kg):[];ax.sets=ts.pre.concat(ax.sets,dr,ts.post)}}
-      return ax})};
-  save();V.tab='hoje';V.stack=[];render();scrollTo(0,0);wake()}
+      return ax})}}
+/* ---------- TREINO CURTO (Tel Morais): versão enxuta só desta sessão ---------- */
+function curtoOn(lib){lib=lib||LIB();return!!(lib&&lib.opts&&lib.opts.curto)}
+const SH_REST=.7;
+const SH_MULTI=/supino|agacha|leg press|terra|remada|puxada|barra fixa|desenvolvimento|afundo|avan[çc]o|stiff|hack|b[úu]lgaro|paralela|mergulho|levantamento|hip thrust|eleva[çc][ãa]o p[ée]lvica|flex[ãa]o|press|thruster|clean|snatch/i;
+function exPrio(ax){if(ax.kind==='cardio'||ax.kind==='wod')return 0;const n=ax.name||'';let v=SH_MULTI.test(n)?3:1;if(/m[áa]quina|smith|cabo|polia|crossover|cadeira|mesa|pec deck|graviton/i.test(n))v+=.5;if(ax.cat==='Core')v=.5;return v}
+function axRest(A,ax){const f=exIn(myActive(),ax.exId);return f&&f.e.restSec?f.e.restSec:90}
+function estAx(A,ax,rf){const f=exIn(myActive(),ax.exId),e=f?f.e:{};if(ax.kind==='cardio')return((ax.cardio&&ax.cardio.min)||(e.cardio&&e.cardio.min)||15)*60;if(ax.kind==='wod')return((e.wod&&e.wod.cap)||12)*60+120;
+  const r=axRest(A,ax)*rf;let t=60;ax.sets.forEach(x=>{t+=x.t==='a'||x.t==='p'?40+Math.min(60,r):x.t==='d'?35:45+r});return t}
+function estA(A,rf){return Math.round(A.exercises.reduce((a,ax)=>a+estAx(A,ax,rf==null?1:rf),0)/60)}
+function shortenActive(A,min,mode){const lim=min*60;A.short={min,mode,orig:A.exercises.length,rf:SH_REST};
+  if(estA(A,1)<=min){A.short.rf=1;A.short.est=estA(A,1);A.short.fits=true;return A}
+  // aproximação enxuta: sem aquecimento separado, só a preparatória mais pesada
+  A.exercises.forEach(ax=>{if(!ax.sets.length)return;const ps=ax.sets.filter(x=>x.t==='p');ax.sets=ax.sets.filter(x=>x.t!=='a'&&(x.t!=='p'||x===ps[ps.length-1]))});
+  const tot=()=>A.exercises.reduce((a,ax)=>a+estAx(A,ax,SH_REST),0);
+  if(mode==='ex'){A.short.removed=[];
+    while(tot()>lim&&A.exercises.length>2){let k=-1,b=1e9;A.exercises.forEach((ax,i)=>{const v=exPrio(ax)*100-i;if(v<b){b=v;k=i}});const [rm]=A.exercises.splice(k,1);A.short.removed.push(rm.name);if(k>0&&A.exercises[k-1].link&&(!A.exercises[k]||k>=A.exercises.length))A.exercises[k-1].link=false;else if(k>0&&rm.link===false)A.exercises[k-1].link=false}
+  }else{let guard=200;
+    while(tot()>lim&&guard--){let k=-1,b=-1e9;A.exercises.forEach((ax,i)=>{const nv=ax.sets.filter(isValid).length;if(ax.kind==='cardio'||ax.kind==='wod'||nv<=1)return;const v=nv*10-exPrio(ax)*3+i*.01;if(v>b){b=v;k=i}});
+      if(k<0){const c=A.exercises.find(ax=>ax.kind==='cardio'&&ax.cardio&&!ax._cut);if(c){c._cut=1;c.cardio.min=Math.max(10,Math.round(((estAx(A,c,1)/60))/2));continue}break}
+      const ax=A.exercises[k];let li=-1;ax.sets.forEach((x,j)=>{if(isValid(x))li=j});ax.sets.splice(li,1)}}
+  A.exercises.forEach(ax=>{if(ax.kind==='cardio'&&ax.cardio&&ax._cut&&!ax.cardio.min)ax.cardio.min=10;delete ax._cut});
+  A.short.est=estA(A,SH_REST);A.name=A.name;return A}
+function restFor(sec){const sh=S.active&&S.active.short,rf=sh?(sh.rf||SH_REST):1;return rf<1?Math.max(30,Math.round(sec*rf/5)*5):sec}
+let SH=null;
+function shPreview(){if(!SH)return'';const A0=buildActive(SH.id);if(!A0)return'';const full=estA(A0,1);const A=shortenActive(buildActive(SH.id),SH.min,SH.mode);
+  const rm=(A.short.removed||[]);
+  return`<div class="sm" style="margin:8px 0">Normal: <b>~${full} min</b> → curto: <b class="ac">~${A.short.est} min</b>${A.short.est>SH.min?` <span class="mu xs">(mínimo possível)</span>`:''}</div>${A.short.fits?'<div class="ok sm">O treino completo já cabe nesse tempo — nada muda.</div>':''}
+  <ul class="exl" style="margin:0">${A.exercises.map(ax=>`<li><span>${esc(ax.name)}</span><span class="mu sm">${ax.kind==='cardio'?(ax.cardio.min||'')+' min':ax.kind==='wod'?'WOD':ax.sets.filter(isValid).length+' séries'}</span></li>`).join('')}${rm.map(n=>`<li style="opacity:.5;text-decoration:line-through"><span>${esc(n)}</span><span class="mu sm">sai</span></li>`).join('')}</ul>
+  ${A.short.fits?'':'<div class="mu xs" style="margin-top:8px">Descanso reduzido para ~70%. Sem aquecimento separado: fica só a preparatória mais pesada. O plano não muda.</div>'}`}
+function shRefresh(){const m=$('#modal');SH.min=+(m.querySelector('[name=shMin]:checked')||{}).value||SH.min;SH.mode=(m.querySelector('[name=shMode]:checked')||{}).value||SH.mode;$('#shPrev').innerHTML=shPreview()}
+function openShort(id){SH={id,min:45,mode:'series'};const opt=(n,v,l,c)=>`<label class="av-opt ${c?'on':''}" style="display:inline-flex;gap:6px;align-items:center;padding:8px 12px;border-radius:10px;background:var(--s2);margin:0 6px 6px 0"><input type="radio" name="${n}" value="${v}" ${c?'checked':''}>${l}</label>`;
+  modal('⏱ Tenho pouco tempo',`<div class="mu sm">Quanto tempo você tem?</div><div style="margin-top:6px">${[30,45,60].map(v=>opt('shMin',v,v+' min',v===45)).join('')}</div>
+   <div class="mu sm" style="margin-top:8px">Como encurtar?</div><div style="margin-top:6px">${opt('shMode','series','Menos séries (todos os exercícios)',1)}${opt('shMode','ex','Menos exercícios (séries normais)',0)}</div><div id="shPrev">${shPreview()}</div>`,
+   [{label:'Cancelar'},{label:'Iniciar treino curto',cls:'pri',fn:()=>{const o={min:SH.min,mode:SH.mode},id=SH.id;SH=null;if(S.active){confirmBox('Treino em andamento',`Você tem <b>${esc(S.active.name)}</b> em andamento. Descartar e iniciar outro?`,'Descartar e iniciar',()=>{S.active=null;startWorkout(id,o)},true);return}startWorkout(id,o)}}]);
+  $('#modal').onchange=()=>{if(SH&&$('#shPrev'))shRefresh()}}
 function onWorkoutInput(t,commitKg){const A=S.active;if(!A)return;const d=t.dataset,i=+d.i,ax=A.exercises[i];if(!ax)return;
   if(d.wf){const j=+d.j,s=ax.sets[j];s[d.wf]=num(t.value);
     if(d.wf==='kg'&&!isValid(s))s.auto=false;
@@ -889,7 +925,7 @@ function finishWorkout(){const A=S.active;
   const ex=A.exercises.filter(exHasData).map(x=>{const o={exId:x.exId,cat:x.cat,name:x.name,kind:x.kind};
     if(x.kind==='cardio'){o.cardio=x.cardio;o.done=true;o.sets=[]}else if(x.kind==='wod'){o.wod=x.wod;o.done=true;o.sets=[]}
     else o.sets=x.sets.filter(s=>s.done).map(s=>{const o2={kg:s.kg,reps:s.reps,rir:s.rir,sec:s.sec};if(s.t&&s.t!=='v')o2.t=s.t;return o2});return o});
-  const L={id:A.id,planId:A.planId,planName:A.planName,round:A.round||1,sessionId:A.sessionId,name:A.name,date:A.date,week:A.week,startedAt:A.startedAt,finishedAt:Date.now(),durationSec:Math.round(elapsedMs(A)/1000),note:A.note||'',exercises:ex};
+  const L={id:A.id,planId:A.planId,planName:A.planName,round:A.round||1,sessionId:A.sessionId,name:A.name,date:A.date,week:A.week,startedAt:A.startedAt,finishedAt:Date.now(),durationSec:Math.round(elapsedMs(A)/1000),note:A.note||'',exercises:ex};if(A.short)L.short={min:A.short.min,mode:A.short.mode};
   S.logs.push(L);markLog(L.id);sortLogs();S.active=null;T=null;let msg='Treino salvo 💪';
   const p=planById(L.planId,S.lib);
   const filled=fillPlanFromLog(p,L);
@@ -911,7 +947,7 @@ VIEWS.metodos=function(){let h=hdr('Métodos de treino','Tel Morais · como exec
 VIEWS.planos=function(){const lib=LIB(),u=U(),own=!u;
   let h=u?hdr('Planos de '+esc(whoName()),'Alterações são salvas na conta dele automaticamente',true):hdr('Planos de treino','Em andamento, próximos e finalizados',!!topV(),syncBadge());
   if(u)h+=`<div class="banner">✏️ Você está editando os planos de <b>${esc(whoName())}</b>.</div>`;
-  if(ME&&ME.role==='master'&&!CTX.tpl)h+=`<div class="card"><div class="sw"><span>Séries preparatórias e back off<div class="mu xs">${u?'Para este aluno':'Para você'}: o treino passa a incluir aquecimento (30%), preparatórias (55% e 75%) e, se marcado no exercício, back off (60%). Por padrão entram no 1º exercício com carga de cada treino; ajuste em cada exercício.</div></span><input type="checkbox" data-libopt="prep" ${prepOn(lib)?'checked':''}></div><div class="sw" style="margin-top:10px"><span>Métodos de treino<div class="mu xs">Libera drop set, rest-pause, cluster, super slow e os demais métodos para escolher em cada exercício. <span data-act="go" data-v="metodos" class="ac b" style="cursor:pointer">Ver métodos ›</span></div></span><input type="checkbox" data-libopt="met" ${metOn(lib)?'checked':''}></div></div>`;
+  if(ME&&ME.role==='master'&&!CTX.tpl)h+=`<div class="card"><div class="sw"><span>Séries preparatórias e back off<div class="mu xs">${u?'Para este aluno':'Para você'}: o treino passa a incluir aquecimento (30%), preparatórias (55% e 75%) e, se marcado no exercício, back off (60%). Por padrão entram no 1º exercício com carga de cada treino; ajuste em cada exercício.</div></span><input type="checkbox" data-libopt="prep" ${prepOn(lib)?'checked':''}></div><div class="sw" style="margin-top:10px"><span>Métodos de treino<div class="mu xs">Libera drop set, rest-pause, cluster, super slow e os demais métodos para escolher em cada exercício. <span data-act="go" data-v="metodos" class="ac b" style="cursor:pointer">Ver métodos ›</span></div></span><input type="checkbox" data-libopt="met" ${metOn(lib)?'checked':''}></div><div class="sw" style="margin-top:10px"><span>Modo treino curto<div class="mu xs">Mostra "Tenho pouco tempo" na tela Hoje: o aluno escolhe 30, 45 ou 60 min e se prefere menos séries ou menos exercícios. Vale só para aquela sessão.</div></span><input type="checkbox" data-libopt="curto" ${curtoOn(lib)?'checked':''}></div></div>`;
   const act=planById(lib.activeId,lib);
   h+=`<h3>Em andamento</h3>`;
   if(act){const N=weeksOf(act);const w=own?progOf(act).week:0;
@@ -1712,6 +1748,7 @@ Object.assign(ACT,{
   _back:()=>{const t=V.stack.pop();if(t&&t.params&&t.params.uid&&!V.stack.some(x=>x.params&&x.params.uid)&&MANAGE&&MANAGE.dirty)saveManaged();render()},
   go:d=>{if(d.v==='picker'){PK.q='';PK.cat=d.mode==='insert'?'Crossfit':'';PK.grp=''}go(d.v,{id:d.id,pid:d.pid,sid:d.sid,eid:d.eid,mode:d.mode,uid:d.uid||''})},
   openLog:d=>go('log',{id:d.id}),
+  startShort:d=>openShort(d.id),
   start:d=>{if(S.active){if(S.active.sessionId===d.id){V.tab='hoje';V.stack=[];render();return}confirmBox('Treino em andamento',`Você tem <b>${esc(S.active.name)}</b> em andamento. Descartar e iniciar outro?`,'Descartar e iniciar',()=>{S.active=null;startWorkout(d.id)},true);return}startWorkout(d.id)},
   setTheme:d=>{try{localStorage.setItem(THEME_KEY,d.t)}catch(e){}applyTheme();render()},
   setDone:d=>{audio();const ax=S.active.exercises[+d.i],s=ax.sets[+d.j];
@@ -1726,8 +1763,8 @@ Object.assign(ACT,{
         if(nx.kind==='cardio'||nx.kind==='wod'||ns>=0){T=null;persistTimer();render();toast(`${nm}: sem descanso → ${nx.name}${ns>=0?' · série '+(ns+1):''}`);const el=document.getElementById('ex'+(+d.i+1));if(el)el.scrollIntoView({behavior:'smooth',block:'start'});return}}
       let first=-1,fs=-1;for(let q=ch.start;q<=ch.end;q++){const k=X[q].sets?X[q].sets.findIndex(x=>!x.done):-1;if(k>=0){first=q;fs=k;break}}
       const after=X[ch.end+1];
-      startTimer(f&&f.e.restSec?f.e.restSec:90,nm+' concluído',first>=0?`${nm} · ${X[first].name} · série ${fs+1}`:(after?'Próximo: '+after.name:'Último exercício concluído'));render();return}
-    startTimer(s.t==='a'||s.t==='p'?Math.min(60,f&&f.e.restSec?f.e.restSec:90):(f&&f.e.restSec?f.e.restSec:90),ax.name,nxs>=0?`${ax.name} · ${setNm(ax.sets,nxs)}`:(nxe?'Próximo: '+nxe.name:'Último exercício concluído'));render()},
+      startTimer(restFor(f&&f.e.restSec?f.e.restSec:90),nm+' concluído',first>=0?`${nm} · ${X[first].name} · série ${fs+1}`:(after?'Próximo: '+after.name:'Último exercício concluído'));render();return}
+    startTimer(restFor(s.t==='a'||s.t==='p'?Math.min(60,f&&f.e.restSec?f.e.restSec:90):(f&&f.e.restSec?f.e.restSec:90)),ax.name,nxs>=0?`${ax.name} · ${setNm(ax.sets,nxs)}`:(nxe?'Próximo: '+nxe.name:'Último exercício concluído'));render()},
   xDone:d=>{const ax=S.active.exercises[+d.i];ax.done=!ax.done;save();render()},
   wodTimer:d=>{audio();const ax=S.active.exercises[+d.i],p=planById(S.active.planId,S.lib),f=p&&exIn(p,ax.exId);const cap=f&&f.e.wod&&f.e.wod.cap||10;startTimer(cap*60,ax.name,ax.name,'wod')},
   addSet:d=>{const ax=S.active.exercises[+d.i];let li=-1;ax.sets.forEach((x,k)=>{if(isValid(x))li=k});const l=li>=0?ax.sets[li]:ax.sets[ax.sets.length-1];ax.sets.splice(li>=0?li+1:ax.sets.length,0,{kg:l?l.kg:null,reps:null,rir:null,sec:null,done:false});save();render()},
