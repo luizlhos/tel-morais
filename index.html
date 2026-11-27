@@ -558,7 +558,7 @@ function sessionsFromRaw(t,p){if(!t)return[];
     it.sets=sets;it.reps=reps;it.restSec=rest;it.rest=rest>=120?(rest/60)+' min':rest+' s';it.rir=it.kind==='time'||c.cat==='Core'?'':'RIR 2';return it}})}))}
 
 "use strict";
-const APP_VERSION='1.8.0';
+const APP_VERSION='1.9.0';
 /* ---------- tema (preferência do aparelho) ---------- */
 const THEME_KEY='telm.theme';const MQ_DARK=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
 function themePref(){try{return localStorage.getItem(THEME_KEY)||'dark'}catch(e){return'dark'}}
@@ -810,7 +810,7 @@ VIEWS.hoje=function(){
   if(S.active)return viewWorkout();
   const p=myActive();
   let h=hdr('Hoje',(ME&&ME.name?'Olá, '+esc(ME.name.split(' ')[0])+' · ':'')+esc(new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})),false,`<div class="row" style="gap:6px">${syncBadge()}<button class="ib" data-act="go" data-v="ajuda" aria-label="Ajuda">?</button></div>`);
-  h+=finBanner();
+  h+=finBanner()+acBanner();
   if(!p)return h+firstSteps();
   if(!p.sessions.length)return h+`<div class="card hero"><h2>${p?'Seu plano ainda não tem treinos':'Nenhum plano ativo'}</h2><p class="mu sm">Crie um plano (ou adicione treinos a ele) na aba <b>Treinos</b>.${ME.role!=='master'?' O master também pode montar para você — aparece aqui automaticamente.':''}</p><button class="btn pri block" data-act="tab" data-t="treinos">Ir para Treinos</button><div style="height:8px"></div><button class="btn block" data-act="syncNow">Atualizar</button></div>`;
   const pr=progOf(p),w=pr.week,N=weeksOf(p);
@@ -946,7 +946,7 @@ function finishWorkout(){const A=S.active;
   const ex=A.exercises.filter(exHasData).map(x=>{const o={exId:x.exId,cat:x.cat,name:x.name,kind:x.kind};
     if(x.kind==='cardio'){o.cardio=x.cardio;o.done=true;o.sets=[]}else if(x.kind==='wod'){o.wod=x.wod;o.done=true;o.sets=[]}
     else o.sets=x.sets.filter(s=>s.done).map(s=>{const o2={kg:s.kg,reps:s.reps,rir:s.rir,sec:s.sec};if(s.t&&s.t!=='v')o2.t=s.t;return o2});return o});
-  const L={id:A.id,planId:A.planId,planName:A.planName,round:A.round||1,sessionId:A.sessionId,name:A.name,date:A.date,week:A.week,startedAt:A.startedAt,finishedAt:Date.now(),durationSec:Math.round(elapsedMs(A)/1000),note:A.note||'',exercises:ex};if(A.short)L.short={min:A.short.min,mode:A.short.mode};
+  const L={id:A.id,planId:A.planId,planName:A.planName,round:A.round||1,sessionId:A.sessionId,name:A.name,date:A.date,week:A.week,startedAt:A.startedAt,finishedAt:Date.now(),durationSec:Math.round(elapsedMs(A)/1000),note:A.note||'',exercises:ex};if(A.short)L.short={min:A.short.min,mode:A.short.mode};{const fb=readFb();if(fb)L.fb=fb}
   S.logs.push(L);markLog(L.id);sortLogs();S.active=null;T=null;let msg='Treino salvo 💪';
   const p=planById(L.planId,S.lib);
   const filled=fillPlanFromLog(p,L);
@@ -1372,7 +1372,7 @@ VIEWS.log=function({id}){const L=S.logs.find(l=>l.id===id);if(!L)return hdr('Reg
 VIEWS.ajustes=function(){const st=S.settings,p=myActive();
   let h=hdr('Perfil',esc(ME.name||'')+' · versão '+APP_VERSION,false,syncBadge());
   const mi=(act,ic,t,d,x='')=>`<div class="li tap" data-act="${act}" ${x}><span class="kd">${ic}</span><div class="t"><b>${t}</b><span class="mu sm">${d}</span></div><span class="mu">›</span></div>`;
-  h+=`<div class="card" style="padding:4px 14px">${mi('go','📋','Planos de treino','Em andamento, próximos e finalizados','data-v="planos"')}${ME.role==='master'?mi('openUsers','👥','Alunos','Cadastro, planos, avaliações e acessos')+mi('go','💰','Financeiro','Faturas, planos de cobrança e Pix','data-v="fin"')+mi('go','🧩','Modelos de treino','Editar os treinos prontos do app','data-v="modelos"'):''}${metOn(S&&S.lib)||ME.role==='master'?mi('go','⚡','Métodos de treino','Drop set, rest-pause, cluster e outros','data-v="metodos"'):''}${mi('go','❓','Ajuda','Como usar cada parte do app','data-v="ajuda"')}</div>`;
+  h+=`<div class="card" style="padding:4px 14px">${mi('go','📋','Planos de treino','Em andamento, próximos e finalizados','data-v="planos"')}${ME.role==='master'?mi('openUsers','👥','Alunos','Cadastro, planos, avaliações e acessos')+mi('go','👀','Acompanhamento','Frequência, alertas e feedback dos treinos','data-v="acomp"')+mi('go','💰','Financeiro','Faturas, planos de cobrança e Pix','data-v="fin"')+mi('go','🧩','Modelos de treino','Editar os treinos prontos do app','data-v="modelos"'):''}${metOn(S&&S.lib)||ME.role==='master'?mi('go','⚡','Métodos de treino','Drop set, rest-pause, cluster e outros','data-v="metodos"'):''}${mi('go','❓','Ajuda','Como usar cada parte do app','data-v="ajuda"')}</div>`;
   h+=`<div class="card"><div class="sw"><span>Sempre mostrar opções avançadas<div class="mu xs">Mostra fases, RIR e progressão de cargas abertas nos planos. Deixe desligado para uma visão mais simples.</div></span><input type="checkbox" data-sf="adv" ${st.adv?'checked':''}></div></div>`;
   {const tp=themePref();h+=`<h3>Aparência</h3><div class="seg">${[['dark','🌙 Escuro'],['light','☀️ Claro'],['auto','📱 Automático']].map(([k,l])=>`<button class="${tp===k?'on':''}" data-act="setTheme" data-t="${k}">${l}</button>`).join('')}</div><p class="mu xs" style="margin:6px 2px 0">Automático segue o modo claro/escuro do iPhone. Vale só para este aparelho.</p>`}
   if(p){const w=progOf(p).week,N=weeksOf(p);h+=`<h3>Plano ativo</h3><div class="card"><div class="b">${esc(p.name)}</div><p class="sm mu">A semana avança sozinha quando você completa todos os treinos. Use os botões só para corrigir.</p>
@@ -1725,7 +1725,7 @@ VIEWS.user=function({id}){const u=USERS&&USERS.list&&USERS.list.find(x=>x.id===i
   let h=hdr(u.name,esc(u.email),true);
   h+=`<div class="stat"><div><b>${u.workouts}</b><span>treinos</span></div><div><b>${u.last_workout?dshort(String(u.last_workout)):'—'}</b><span>último treino</span></div><div><b style="font-size:15px">${rel(u.last_seen_at)}</b><span>visto no app</span></div></div>`;
   if(!UB[id]){UB[id]={loading:true};SB.from('user_docs').select('state').eq('user_id',id).maybeSingle().then(({data})=>{UB[id]=(data&&data.state&&data.state.body)||{};const t=topV();if(t&&(t.view==='user'||t.view==='uhist')&&t.params.id===id)render()})}
-  if(u.role!=='master')h+=infoCard(u)+finCard(u)+notesCard(u);
+  if(u.role!=='master')h+=infoCard(u)+acUserCard(u)+finCard(u)+notesCard(u);
   const UBd=UB[id];if(UBd&&!UBd.loading)h+=`<h3>Perfil corporal</h3><div class="card">${(UBd.weights&&UBd.weights.length)||UBd.height?bodySummary(UBd)+(weightsSorted(UBd).length>1?'<div style="height:8px"></div>'+weightChart(UBd):''):'<div class="mu sm">Ainda não preenchido por ele.</div>'}</div>`;
   h+=`<div class="card"><div class="row"><span class="sp">Acesso ao app</span><b style="color:${u.active?'var(--ok)':'var(--bad)'}">${u.active?'Liberado':'Desativado'}</b></div><div class="row" style="margin-top:6px"><span class="sp">Planos</span><b>${u.has_program?'sim':'nenhum ainda'}</b></div><div class="row" style="margin-top:6px"><span class="sp">Criado em</span><span>${new Date(u.created_at).toLocaleDateString('pt-BR')}</span></div></div>`;
   if(!me)h+=`<button class="btn pri block" data-act="manageProg" data-id="${u.id}">Ver / montar planos</button><div style="height:8px"></div>
@@ -1740,7 +1740,7 @@ const UH={},UB={};
 VIEWS.uhist=function({id}){const u=USERS&&USERS.list&&USERS.list.find(x=>x.id===id);let h=hdr('Histórico',esc(u?u.name:''),true);
   if(!UH[id]){SB.from('workout_logs').select('data').eq('user_id',id).eq('deleted',false).order('date',{ascending:false}).limit(200).then(({data,error})=>{UH[id]=error?{err:friendlyErr(error)}:{list:(data||[]).map(r=>r.data)};render()});return h+'<div class="empty">Carregando…</div>'}
   if(UH[id].err)return h+`<div class="card">${esc(UH[id].err)}</div>`;if(!UH[id].list.length)return h+'<div class="empty">Nenhum treino registrado.</div>';
-  const ub=UB[id]&&!UB[id].loading?UB[id]:null;return h+calendarHTML(UH[id].list,'u'+id,false)+UH[id].list.map(L=>`<div class="card"><div class="row"><b class="sp">${esc(L.name)}${(k=>k&&k.total?` <span class="mu sm">🔥 ${kcalTxt(k)}</span>`:'')(ub&&workoutKcal(L,ub))}</b><span class="mu sm">${dshort(L.date)} · ${esc(L.planName||'')} S${L.week}</span></div>${L.exercises.map(x=>`<div class="sm" style="margin-top:6px"><span class="mu">${KIND_ICON[x.kind||'load']||''} ${esc(x.name)}:</span> ${esc(exSummary(Object.assign({kind:'load'},x)))}</div>`).join('')}</div>`).join('')};
+  const ub=UB[id]&&!UB[id].loading?UB[id]:null;return h+calendarHTML(UH[id].list,'u'+id,false)+UH[id].list.map(L=>`<div class="card"><div class="row"><b class="sp">${esc(L.name)}${(k=>k&&k.total?` <span class="mu sm">🔥 ${kcalTxt(k)}</span>`:'')(ub&&workoutKcal(L,ub))}</b><span class="mu sm">${dshort(L.date)} · ${esc(L.planName||'')} S${L.week}</span></div>${L.fb?`<div class="sm" style="margin-top:4px">${L.fb.rpe?'💪 '+rpeTxt(L.fb.rpe):''}${L.fb.pain||L.fb.painNote?' · 🩹 '+esc(L.fb.painNote||'relatou dor'):''}</div>`:''}${L.exercises.map(x=>`<div class="sm" style="margin-top:6px"><span class="mu">${KIND_ICON[x.kind||'load']||''} ${esc(x.name)}:</span> ${esc(exSummary(Object.assign({kind:'load'},x)))}</div>`).join('')}</div>`).join('')};
 async function adminCall(body){const{data,error}=await SB.functions.invoke('admin-users',{body});
   if(error){let m=error.message;try{const j=await error.context.json();m=j.error||m}catch(e){}throw new Error(m)}if(data&&data.error)throw new Error(data.error);return data}
 function genPass(){const c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';let p='';const a=new Uint32Array(10);crypto.getRandomValues(a);a.forEach(v=>p+=c[v%c.length]);return p}
@@ -2022,6 +2022,76 @@ Object.assign(ACT,{
 });
 async function finUpd(i,o,msg){const{error}=await SB.from('fin_invoices').update(Object.assign(o,{updated_by:ME.id,updated_at:new Date().toISOString()})).eq('id',i.id);if(error)throw new Error(friendlyErr(error));$('#modal').hidden=true;await finAfter(i.user_id,msg)}
 
+/* ---------- acompanhamento (v1.9.0) ---------- */
+const AC_IDLE=7,AC_REEVAL=56;let ACOMP=null;
+const RPE_OPTS=[['','—'],['1','1 · muito leve'],['2','2'],['3','3 · leve'],['4','4'],['5','5 · moderado'],['6','6'],['7','7 · difícil'],['8','8'],['9','9 · muito difícil'],['10','10 · máximo']];
+function fbForm(){return`<div style="border-top:1px solid var(--s3);margin-top:12px;padding-top:10px"><b class="sm">Como foi o treino?</b> <span class="mu xs">(opcional · o treinador vê)</span>
+  <div class="grid2"><label class="f"><span>Esforço (1 a 10)</span>${sel('',RPE_OPTS,'','id="fbRpe"')}</label><label class="f"><span>Dor ou desconforto?</span>${sel('',[['','Não'],['1','Sim']],'','id="fbPain"')}</label></div>
+  <label class="f"><span>Onde / observação</span><input id="fbPainNote" maxlength="200" placeholder="ex: ombro direito no supino"></label></div>`}
+function readFb(){const g=id=>{const e=document.getElementById(id);return e?e.value.trim():''};const rpe=+g('fbRpe')||null,pain=g('fbPain')==='1',note=g('fbPainNote').slice(0,200);
+  if(!rpe&&!pain&&!note)return null;const o={};if(rpe)o.rpe=rpe;if(pain)o.pain=true;if(note)o.painNote=note;return o}
+function rpeTxt(r){return r?`esforço ${String(r).replace('.',',')}/10`:''}
+/* carrega tudo o que o painel precisa (só master) */
+async function loadAcomp(){if(!navigator.onLine){ACOMP={err:'Sem internet',at:Date.now()};return}ACOMP={loading:true,at:Date.now()};try{await loadAcomp2()}catch(e){ACOMP={err:e.message||String(e),at:Date.now()}}}
+async function loadAcomp2(){
+  if(!USERS||!USERS.list)await loadUsers();
+  const from=iso(new Date(Date.now()-35*864e5));
+  const[d,l,a,f]=await Promise.all([SB.from('user_docs').select('user_id,program,state'),SB.from('workout_logs').select('user_id,date,data').eq('deleted',false).gte('date',from).order('date',{ascending:false}),SB.from('assessments').select('user_id,created_at'),SB.from('fin_invoices').select('user_id,due_date').eq('status','aberta').lt('due_date',todayISO())]);
+  const e=d.error||l.error;if(e){ACOMP={err:friendlyErr(e),at:Date.now()};return}
+  const docs={};(d.data||[]).forEach(x=>docs[x.user_id]=x);const logs={};(l.data||[]).forEach(x=>(logs[x.user_id]=logs[x.user_id]||[]).push(x.data||{date:x.date}));
+  const av={};(a.data||[]).forEach(x=>{const t=String(x.created_at).slice(0,10);if(!av[x.user_id]||av[x.user_id]<t)av[x.user_id]=t});
+  const late=new Set((f.data||[]).map(x=>x.user_id));
+  ACOMP={at:Date.now(),rows:(USERS.list||[]).filter(u=>u.role!=='master').map(u=>acRow(u,docs[u.id],logs[u.id]||[],av[u.id],late.has(u.id)))};
+  const t=topV();if(!t&&V.tab==='hoje'||t&&(t.view==='acomp'||t.view==='user'))render()}
+function acRow(u,doc,logs,avDate,finLate){const T=todayISO(),prog=doc&&doc.program,st=doc&&doc.state||{};
+  const lib=prog&&Array.isArray(prog.plans)?prog:null,p=lib&&lib.plans.find(x=>x.id===lib.activeId)||null;
+  const perWeek=p&&p.sessions?p.sessions.length:0,N=p?weeksOf(p):0,w=p&&st.prog&&st.prog[p.id]?+st.prog[p.id].week||1:1;
+  const ev=lib&&lib.anam&&lib.anam.evals||[];let lastAv=avDate||null;ev.forEach(x=>{if(x.date&&(!lastAv||x.date>lastAv))lastAv=x.date});
+  const inDays=n=>logs.filter(L=>L.date&&dDiff(L.date,T)<n).length;
+  const wk=[0,1,2,3].map(k=>logs.filter(L=>{const d=dDiff(L.date,T);return d>=k*7&&d<k*7+7}).length);
+  const last=u.last_workout?String(u.last_workout):(logs[0]&&logs[0].date)||null;
+  const rp=logs.filter(L=>L.fb&&L.fb.rpe&&dDiff(L.date,T)<28).map(L=>L.fb.rpe);
+  const pains=logs.filter(L=>L.fb&&(L.fb.pain||L.fb.painNote)&&dDiff(L.date,T)<7);
+  const start=u.info&&u.info.start_date||String(u.created_at).slice(0,10);
+  const r={u,st:uStatus(u),p,perWeek,N,w,wk,w7:inDays(7),w28:inDays(28),last,idle:last?dDiff(last,T):null,lastAv,avAge:lastAv?dDiff(lastAv,T):null,
+    rpe:rp.length?Math.round(rp.reduce((a,b)=>a+b,0)/rp.length*10)/10:null,pains,finLate,start};
+  r.freq=perWeek?Math.round(r.w28/(perWeek*4)*100):null;
+  const al=[];if(r.st==='ativo'&&u.active){
+    if(r.idle==null?dDiff(start,T)>=AC_IDLE:r.idle>=AC_IDLE)al.push(['idle',r.idle==null?'Ainda não registrou treino':`Sem treinar há ${r.idle} dias`]);
+    if(!p)al.push(['plan','Sem plano de treino ativo']);else if(w>N)al.push(['plan',`Plano "${p.name}" concluído`]);else if(w===N)al.push(['plan',`Última semana do plano "${p.name}"`]);
+    if(r.avAge==null?dDiff(start,T)>=AC_REEVAL:r.avAge>=AC_REEVAL)al.push(['eval',r.avAge==null?'Sem avaliação registrada':`Última avaliação há ${Math.floor(r.avAge/7)} semanas`]);
+    if(pains.length)al.push(['pain',`Relatou dor: ${pains.map(L=>L.fb.painNote||'sem detalhe').join('; ')}`]);
+    if(finLate)al.push(['fin','Mensalidade vencida'])}
+  r.alerts=al;return r}
+const AC_IC={idle:'💤',plan:'📋',eval:'📏',pain:'🩹',fin:'💰'};
+function acCard(r){return`<div class="li tap" data-act="go" data-v="user" data-id="${r.u.id}"><div class="t"><b>${esc(r.u.name)}</b>${r.alerts.map(([k,t])=>`<span class="sm" style="display:block">${AC_IC[k]} ${esc(t)}</span>`).join('')}</div>${r.u.info&&r.u.info.phone?`<button class="btn smb" data-act="openWa" data-u="${esc(waURL(r.u.info.phone,`Olá, ${firstName(r.u.name)}! Tudo bem? Passando para saber como estão os treinos 💪`))}" aria-label="WhatsApp">💬</button>`:''}<span class="mu">›</span></div>`}
+VIEWS.acomp=function(){let h=hdr('Acompanhamento','',true,'<button class="btn smb" data-act="acReload">↻</button>');
+  if(!ACOMP||(!ACOMP.loading&&!ACOMP.rows&&!ACOMP.err)){loadAcomp();return h+'<div class="empty">Carregando…</div>'}if(ACOMP.loading)return h+'<div class="empty">Carregando…</div>';if(ACOMP.err)return h+`<div class="card" style="color:var(--bad)">${esc(ACOMP.err)}</div>`;
+  const R=ACOMP.rows.filter(r=>r.st==='ativo'&&r.u.active),att=R.filter(r=>r.alerts.length).sort((a,b)=>b.alerts.length-a.alerts.length);
+  const tw=R.reduce((s,r)=>s+r.w7,0),avgF=(x=>x.length?Math.round(x.reduce((a,b)=>a+b,0)/x.length):null)(R.filter(r=>r.freq!=null).map(r=>Math.min(r.freq,100)));
+  h+=`<div class="stat"><div><b>${R.length}</b><span>alunos ativos</span></div><div><b>${tw}</b><span>treinos em 7 dias</span></div><div><b>${avgF!=null?avgF+'%':'—'}</b><span>frequência 4 sem.</span></div></div>`;
+  h+=`<h3>Precisam de atenção (${att.length})</h3>`+(att.length?`<div class="card" style="padding:4px 14px">${att.map(acCard).join('')}</div>`:'<div class="mu sm" style="margin:0 2px">Ninguém precisando de atenção agora 👏</div>');
+  h+=`<h3>Frequência · últimas 4 semanas</h3><div class="card" style="padding:4px 14px">${R.sort((a,b)=>(b.freq??-1)-(a.freq??-1)).map(r=>`<div class="li tap" data-act="go" data-v="user" data-id="${r.u.id}"><div class="t"><b>${esc(r.u.name)}</b><span class="mu sm">${r.perWeek?`${r.w7}/${r.perWeek} nesta semana · `:''}${r.w28} em 4 sem.${r.rpe?' · '+rpeTxt(r.rpe)+' (média)':''}</span></div>${freqBadge(r.freq)}<span class="mu">›</span></div>`).join('')||'<div class="mu sm" style="padding:10px 0">Nenhum aluno ativo.</div>'}</div>
+  <p class="mu xs" style="margin:6px 2px">Frequência = treinos feitos ÷ treinos previstos no plano ativo. Alertas: ${AC_IDLE}+ dias sem treinar, plano no fim, avaliação com mais de ${AC_REEVAL/7} semanas, dor relatada nos últimos 7 dias e mensalidade vencida. Alunos pausados ficam fora.</p>`;
+  return h};
+function freqBadge(f){if(f==null)return'<span class="mu sm">—</span>';const c=f>=80?'var(--ok)':f>=50?'var(--warn)':'var(--bad)';return`<b style="color:${c};min-width:46px;text-align:right">${Math.min(f,999)}%</b>`}
+/* ficha do aluno: frequência e feedback */
+function acUserCard(u){if(!ACOMP||(!ACOMP.rows&&!ACOMP.loading&&!ACOMP.err)||Date.now()-ACOMP.at>6e5&&!ACOMP.loading){loadAcomp();return''}
+  const r=ACOMP.rows&&ACOMP.rows.find(x=>x.u.id===u.id);if(!r)return'';
+  const mx=Math.max(r.perWeek||0,...r.wk,1),lbs=['esta sem.','1 sem.','2 sem.','3 sem.'];
+  let h=`<h3>Acompanhamento</h3><div class="card">${r.alerts.length?r.alerts.map(([k,t])=>`<div class="sm" style="margin-bottom:4px">${AC_IC[k]} ${esc(t)}</div>`).join('')+'<div style="height:6px"></div>':''}
+    <div class="row" style="align-items:flex-end;gap:10px;height:90px">${r.wk.slice().reverse().map((n,k)=>`<div class="sp" style="text-align:center"><div class="xs mu">${n}${r.perWeek?'/'+r.perWeek:''}</div><div style="height:${Math.max(4,Math.round(n/mx*56))}px;background:${r.perWeek&&n>=r.perWeek?'var(--ok)':'var(--ac)'};border-radius:6px;margin:4px 6px 0"></div><div class="xs mu" style="margin-top:4px">${lbs[3-k]}</div></div>`).join('')}</div>
+    <div class="row" style="margin-top:10px"><span class="sp sm">Frequência (4 sem.)</span>${freqBadge(r.freq)}</div>
+    ${r.p?`<div class="row" style="margin-top:6px"><span class="sp sm">Plano</span><span class="sm">${esc(r.p.name)} · semana ${Math.min(r.w,r.N)} de ${r.N}</span></div>`:''}
+    <div class="row" style="margin-top:6px"><span class="sp sm">Última avaliação</span><span class="sm">${r.lastAv?esc(isoToBR(r.lastAv)):'—'}</span></div>
+    ${r.rpe?`<div class="row" style="margin-top:6px"><span class="sp sm">Esforço médio</span><span class="sm">${String(r.rpe).replace('.',',')}/10</span></div>`:''}</div>`;
+  return h}
+/* banner do master na tela Hoje */
+function acBanner(){if(!ME||ME.role!=='master')return'';if(!ACOMP||(!ACOMP.loading&&Date.now()-ACOMP.at>6e5)){if(navigator.onLine&&SB)loadAcomp();return''}
+  if(!ACOMP.rows)return'';const n=ACOMP.rows.filter(r=>r.alerts.some(a=>a[0]!=='fin')).length;if(!n)return'';
+  return`<div class="card tap" data-act="go" data-v="acomp" style="border-left:4px solid var(--ac)"><div class="row"><span class="sp sm">👀 <b>Acompanhamento:</b> ${n===1?'1 aluno precisa':n+' alunos precisam'} de atenção (treinos, plano, avaliação ou dor).</span><span class="mu">›</span></div></div>`}
+Object.assign(ACT,{acReload:()=>{ACOMP=null;USERS=null;render()}});
+
 
 /* ---------- ações gerais ---------- */
 Object.assign(ACT,{
@@ -2069,7 +2139,7 @@ Object.assign(ACT,{
   finish:()=>{const A=S.active;const ok=A.exercises.filter(exHasData).length;
     if(!ok){confirmBox('Nada registrado','Nenhuma série ou bloco foi concluído. Deseja descartar este treino?','Descartar',()=>{S.active=null;T=null;save();saveNow();wake();render()},true);return}
     const pend=A.exercises.filter(x=>!exDone(x)).length;
-    confirmBox('Finalizar treino',`<p><b>${ok}</b> de ${A.exercises.length} exercícios com registro · ${mmss(elapsedMs(A)/1000)} de treino.${(()=>{const k=workoutKcal(A,null,true);return k&&k.total?` Gasto estimado: <b>${kcalTxt(k)}</b> (ativas ~${k.active}).`:''})()}</p>${pend?'<p class="mu sm">Séries/blocos sem ✓ não serão salvos.</p>':''}`,'Salvar treino',finishWorkout)},
+    confirmBox('Finalizar treino',`<p><b>${ok}</b> de ${A.exercises.length} exercícios com registro · ${mmss(elapsedMs(A)/1000)} de treino.${(()=>{const k=workoutKcal(A,null,true);return k&&k.total?` Gasto estimado: <b>${kcalTxt(k)}</b> (ativas ~${k.active}).`:''})()}</p>${pend?'<p class="mu sm">Séries/blocos sem ✓ não serão salvos.</p>':''}`+fbForm(),'Salvar treino',finishWorkout)},
   discard:()=>confirmBox('Descartar treino','Tudo que foi registrado neste treino será perdido.','Descartar',()=>{S.active=null;T=null;save();saveNow();wake();render()},true),
   tAdd:d=>{if(T){T.end+=(+d.s)*1000;T.total=Math.max(T.total,(T.end-Date.now())/1000);const left=(T.end-Date.now())/1000;if(left>0)T.fired=false;if(left>5)T.warned=false;persistTimer();tick()}},
   tClose:()=>{T=null;persistTimer();tick()},
