@@ -1,4 +1,4 @@
-const APP_VERSION='2.0.0-alpha.1';
+const APP_VERSION='2.0.0-alpha.2';
 const EXDIR='../exercicios/'; // v2 em teste: usa as fotos da pasta principal;
 /* ---------- tema (preferência do aparelho) ---------- */
 const THEME_KEY='telm.theme';const MQ_DARK=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
@@ -216,7 +216,16 @@ function modal(title,body,btns){const m=$('#modal');m.innerHTML=`<div class="mbo
   m.onclick=ev=>{const k=ev.target.closest('[data-mb]');if(k){const b=btns[+k.dataset.mb];if(b.keep&&b.fn){b.fn();return}m.hidden=true;b.fn&&b.fn()}else if(ev.target===m)m.hidden=true}}
 /* ---------- demonstração do exercício (imagens em exercicios/, dados em exercicios.js) ---------- */
 const DEMO=()=>typeof EXDEMO!=='undefined'?EXDEMO:{};
-function demoBtn(ax){if(!['load','bw','time'].includes(ax.kind))return'';const x=ax.cat&&(DEMO()[ax.cat]||MEDIA[ax.cat]);return`<button class="demob${x?'':' off'}" data-act="demo" data-c="${esc(ax.cat||'')}" data-n="${esc(ax.name)}" aria-label="Como fazer: ${esc(ax.name)}">▶</button>`}
+function demoBtn(ax){if(!['load','bw','time'].includes(ax.kind))return'';const x=ax.cat&&demoInfo(ax.cat);return`<button class="demob${x?'':' off'}" data-act="demo" data-c="${esc(ax.cat||'')}" data-n="${esc(ax.name)}" aria-label="Como fazer: ${esc(ax.name)}">▶</button>`}
+/* Mídia unificada: 1º vídeo/texto do Tel (exercise_media) · 2º fotos revisadas do Tel (exercicios/) · 3º Free Exercise DB (js/midia.js) */
+const MID=()=>typeof MIDIA!=='undefined'?MIDIA:{};
+function demoInfo(c){if(!c)return null;const x=DEMO()[c],m=MEDIA[c],f=MID()[c];if(!x&&!m&&!f)return null;
+  const s=String(c).slice(2).replace(/[^a-z0-9-]/g,'');let fotos=[],fonte='';
+  if(x){fotos=[EXDIR+s+'/0.jpg',EXDIR+s+'/1.jpg'];fonte='tel'}
+  else if(f&&f.f&&typeof fotoDe==='function'){fotos=[0,1].slice(0,Math.min(f.n||1,2)).map(i=>fotoDe(c,i));fonte='fedb'}
+  const musc=x?x.m:(f?[...(f.p||[]),...(f.s||[])].join(', ').toLowerCase():'');
+  const passos=m&&m.t?m.t.split(/\n+/).map(q=>q.trim()).filter(Boolean):(x?x.p:(f&&f.c)||[]);
+  return{video:m&&m.v?m.v:'',fotos,fonte,musc,passos,evite:(!(m&&m.t)&&!x&&f&&f.e)||[],aprox:x?!x.a:false}}
 function demoVideo(u){u=String(u||'');if(!/^https:\/\//.test(u))return'';
   const y=u.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
   if(y)return`<div class="dvid"><iframe src="https://www.youtube-nocookie.com/embed/${y[1]}?rel=0&playsinline=1&loop=1&playlist=${y[1]}" title="Vídeo do exercício" allow="encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
@@ -474,7 +483,7 @@ VIEWS.exercise=function({id,pid}){const p=planById(pid),f=exIn(p,id);if(!f)retur
   if(e.kind==='load'&&prepOn()){h+=`<div class="grid2"><label class="f"><span>Séries de aproximação</span>${sel('',[['','Nenhuma'],['a','Só aquecimento (30%)'],['p','Só preparatórias (55% e 75%)'],['ap','Aquecimento + preparatórias']],apOf(e,f.s),`data-ef="ap" ${a}`)}</label><label class="f"><span>Back off no final</span>${sel('',[['0','Não'],['1','Sim (60%, máx. reps)']],e.bo?'1':'0',`data-ef="bo" ${a}`)}</label></div>`}
   h+=`<label class="f"><span>Dicas / execução</span><textarea data-ef="why" ${a} rows="2">${esc(e.why||'')}</textarea></label></div>`;
   if(ME&&ME.role==='master'&&e.cat&&['load','bw','time'].includes(e.kind)){const m=MEDIA[e.cat]||{},c=`data-c="${esc(e.cat)}" data-n="${esc(e.name)}"`;
-    h+=`<h3>Demonstração (vale para todos os alunos)</h3><div class="card"><p class="mu xs" style="margin-top:0">${m.v||m.t?'Personalizada pelo treinador.':DEMO()[e.cat]?'Usando a demonstração padrão (imagens).':'Sem demonstração ainda.'} Link do YouTube ou de um arquivo .mp4. Nas instruções, um passo por linha.</p>
+    h+=`<h3>Demonstração (vale para todos os alunos)</h3><div class="card"><p class="mu xs" style="margin-top:0">${m.v||m.t?'Personalizada pelo treinador.':DEMO()[e.cat]?'Usando a demonstração padrão (imagens revisadas).':MID()[e.cat]&&MID()[e.cat].f?'Usando a demonstração padrão (fotos do catálogo aberto).':MID()[e.cat]?'Usando a demonstração padrão (só texto, sem imagem).':'Sem demonstração ainda.'} Link do YouTube ou de um arquivo .mp4. Nas instruções, um passo por linha.</p>
       <label class="f"><span>Link do vídeo</span><input id="dmUrl" inputmode="url" placeholder="https://youtu.be/..." value="${esc(m.v||'')}"></label>
       <label class="f"><span>Instruções (substituem os passos padrão)</span><textarea id="dmTxt" rows="4" maxlength="2000">${esc(m.t||'')}</textarea></label>
       <div class="row" style="gap:8px"><button class="btn smb" data-act="demo" ${c}>▶ Ver</button><span class="sp"></span>${m.v||m.t?`<button class="btn smb" data-act="demoReset" ${c} style="color:var(--bad)">Voltar ao padrão</button>`:''}<button class="btn smb pri" data-act="demoSave" ${c}>Salvar</button></div></div>`}
@@ -1655,12 +1664,11 @@ Object.assign(ACT,{
 
 /* ---------- eventos ---------- */
 document.addEventListener('touchend',()=>{if(S&&S.active)audio()},{passive:true});
-ACT.demo=d=>{const x=DEMO()[d.c],m=MEDIA[d.c],t=esc(d.n||'Exercício');
-  if(!x&&!m){modal(t,'<p class="mu">Demonstração em breve para este exercício. Em caso de dúvida na execução, fale com o seu treinador.</p>',[{label:'Fechar',cls:'pri'}]);return}
-  const s=String(d.c).slice(2).replace(/[^a-z0-9-]/g,'');const vid=m&&m.v?demoVideo(m.v):'';
-  const media=vid||(x?`<div class="demo"><img src="${EXDIR}${s}/0.jpg" alt="Posição inicial"><img src="${EXDIR}${s}/1.jpg" alt="Posição final"></div>`:'');
-  const passos=m&&m.t?m.t.split(/\n+/).map(q=>q.trim()).filter(Boolean):(x?x.p:[]);
-  modal(t,`${media}${x?`<div class="mu sm"><b>Trabalha:</b> ${esc(x.m)}</div>`:''}${passos.length?`<ol class="dsteps">${passos.map(q=>`<li>${esc(q)}</li>`).join('')}</ol>`:''}${x&&!x.a&&!vid?'<p class="mu xs">A imagem mostra uma variação próxima deste exercício.</p>':''}`,[{label:'Fechar',cls:'pri'}])};
+ACT.demo=d=>{const I=demoInfo(d.c),t=esc(d.n||'Exercício');
+  if(!I){modal(t,'<p class="mu">Demonstração em breve para este exercício. Em caso de dúvida na execução, fale com o seu treinador.</p>',[{label:'Fechar',cls:'pri'}]);return}
+  const vid=I.video?demoVideo(I.video):'';
+  const media=vid||(I.fotos.length?`<div class="demo">${I.fotos.map((u,k)=>`<img src="${u}" alt="${k?'Posição final':'Posição inicial'}" loading="lazy">`).join('')}</div>`:'');
+  modal(t,`${media}${I.musc?`<div class="mu sm"><b>Trabalha:</b> ${esc(I.musc)}</div>`:''}${I.passos.length?`<ol class="dsteps">${I.passos.map(q=>`<li>${esc(q)}</li>`).join('')}</ol>`:''}${I.evite.length?`<div class="mu sm"><b>Evite:</b></div><ul class="dsteps">${I.evite.map(q=>`<li>${esc(q)}</li>`).join('')}</ul>`:''}${I.aprox&&!vid?'<p class="mu xs">A imagem mostra uma variação próxima deste exercício.</p>':''}${I.fonte==='fedb'&&!vid?`<p class="mu xs">${esc(MIDIA_CREDITO)}</p>`:''}`,[{label:'Fechar',cls:'pri'}])};
 ACT.demoSave=async d=>{const u=($('#dmUrl').value||'').trim(),t=($('#dmTxt').value||'').trim();
   if(u&&!/^https:\/\/\S+$/.test(u)){toast('O link precisa começar com https://');return}
   if(!SB||!navigator.onLine){toast('Sem conexão: tente de novo quando estiver online');return}
