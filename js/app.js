@@ -1,4 +1,4 @@
-const APP_VERSION='2.1.1';
+const APP_VERSION='2.1.2';
 const EXDIR='exercicios/';
 /* ---------- tema (preferência do aparelho) ---------- */
 const THEME_KEY='telm.theme';const MQ_DARK=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
