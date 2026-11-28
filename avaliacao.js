@@ -32,22 +32,21 @@
     'Algum médico já disse que você só deve fazer atividade física com supervisão médica?',
   ];
   const Q = (k, l, t, o) => Object.assign({ k, l, t }, o || {});
+  // v2: 4 etapas e 30 perguntas (sairam alimentacao detalhada, tipo de trabalho e habitos opcionais; ver OLD_QS)
   const SECTIONS = [
-    { t: 'Você', qs: [
+    { t: 'Você e medidas', qs: [
       Q('whatsapp', 'WhatsApp (com DDD)', 'tel', { req: 1, ph: '(11) 99999-0000' }),
       Q('birth', 'Data de nascimento', 'date', { req: 1 }),
       Q('sex', 'Sexo (usado nas fórmulas de cálculo)', 'radio2', { req: 1, opts: [['F', 'Feminino'], ['M', 'Masculino']] }),
-    ] },
-    { t: 'Medidas', qs: [
       Q('weight', 'Peso atual', 'num', { req: 1, u: 'kg', ph: '68,5', min: 30, max: 300 }),
       Q('goal_weight', 'Peso meta', 'num', { req: 1, u: 'kg', ph: '62', min: 30, max: 300 }),
       Q('height', 'Altura', 'num', { req: 1, u: 'cm', ph: '168', min: 100, max: 230 }),
       Q('bf_scale', '% de gordura da balança (opcional)', 'num', { u: '%', ph: '27,5', min: 3, max: 60,
         help: 'Se a sua balança de bioimpedância informa o percentual de gordura, digite aqui. É uma estimativa: varia com hidratação, horário e refeições. Meça sempre nas mesmas condições (ex.: ao acordar, em jejum).' }),
-      Q('neck', 'Pescoço (opcional)', 'num', { u: 'cm', min: 20, max: 80, help: 'Com fita métrica. Pescoço + cintura (+ quadril, para mulheres) permitem estimar a gordura pelo método da Marinha dos EUA.' }),
-      Q('waist', 'Cintura (opcional)', 'num', { u: 'cm', min: 40, max: 200, help: 'Na parte mais estreita do tronco.' }),
-      Q('abdomen', 'Abdômen na altura do umbigo (opcional)', 'num', { u: 'cm', min: 40, max: 200 }),
-      Q('hip', 'Quadril (opcional)', 'num', { u: 'cm', min: 50, max: 200, help: 'Na parte mais larga do quadril.' }),
+      Q('neck', 'Pescoço (opcional)', 'num', { u: 'cm', min: 20, max: 80, grp: 'fita', help: 'Com fita métrica. Pescoço + cintura (+ quadril, para mulheres) permitem estimar a gordura pelo método da Marinha dos EUA.' }),
+      Q('waist', 'Cintura (opcional)', 'num', { u: 'cm', min: 40, max: 200, grp: 'fita', help: 'Na parte mais estreita do tronco.' }),
+      Q('abdomen', 'Abdômen na altura do umbigo (opcional)', 'num', { u: 'cm', grp: 'fita', min: 40, max: 200 }),
+      Q('hip', 'Quadril (opcional)', 'num', { u: 'cm', min: 50, max: 200, grp: 'fita', help: 'Na parte mais larga do quadril.' }),
     ] },
     { t: 'Objetivo e rotina', qs: [
       Q('goal', 'Qual é o seu objetivo principal?', 'sel', { req: 1, opts: [['emagrecimento', 'Emagrecimento'], ['hipertrofia', 'Ganho de massa muscular'], ['recomposicao', 'Recomposição corporal'], ['condicionamento', 'Condicionamento físico'], ['saude', 'Saúde e bem-estar'], ['outro', 'Outro (conte nas observações)']] }),
@@ -55,7 +54,6 @@
       Q('train_hist', 'Você treina atualmente? Conte seu histórico de treino', 'area', { req: 1, max: 600, ph: 'Ex.: musculação 4x por semana há 1 ano; caminhada nos outros dias. Ou: nunca treinei.' }),
       Q('train_days', 'Quantos dias por semana você consegue treinar?', 'sel', { req: 1, int: 1, opts: [0, 1, 2, 3, 4, 5, 6, 7].map(n => [String(n), String(n)]) }),
       Q('train_place', 'Onde você treina (ou pretende treinar)?', 'sel', { opts: [['academia', 'Academia'], ['casa', 'Em casa'], ['ar_livre', 'Ao ar livre'], ['box', 'Box de CrossFit'], ['outro', 'Outro']] }),
-      Q('work_type', 'Como é o seu trabalho?', 'sel', { opts: [['sedentario', 'Sentado a maior parte do tempo'], ['em_pe', 'Em pé / andando'], ['ativo', 'Esforço físico'], ['turnos', 'Turnos / horários variáveis']] }),
     ] },
     { t: 'Saúde', qs: [
       Q('parq', 'Questionário de prontidão para atividade física (PAR-Q)', 'parq', { req: 1 }),
@@ -65,29 +63,29 @@
       Q('allergies', 'Você tem alergias ou intolerâncias alimentares?', 'area', { req: 1, max: 400, ph: 'Ex.: lactose, glúten, frutos do mar, nenhuma…' }),
       Q('pregnancy', 'Você está gestante ou amamentando?', 'sel', { opts: [['nao', 'Não'], ['gestante', 'Gestante'], ['lactante', 'Amamentando']], onlyF: 1 }),
     ] },
-    { t: 'Alimentação e hábitos', qs: [
+    { t: 'Hábitos e compromisso', qs: [
       Q('diet_restr', 'Você tem alguma restrição alimentar?', 'area', { req: 1, max: 400, ph: 'Ex.: vegetariana, sem carne vermelha, sem açúcar, nenhuma…' }),
       Q('meals', 'Quantas refeições você faz por dia?', 'sel', { req: 1, int: 1, opts: [1, 2, 3, 4, 5, 6, 7, 8].map(n => [String(n), n === 8 ? '8 ou mais' : String(n)]) }),
+      Q('water', 'Quantos litros de água você bebe por dia?', 'num', { req: 1, u: 'L', ph: '1,8', min: 0, max: 10 }),
+      Q('sleep_h', 'Quantas horas você dorme por noite?', 'num', { req: 1, u: 'h', ph: '7', min: 2, max: 14 }),
+      Q('sleep_q', 'Como é a qualidade do seu sono?', 'sel', { req: 1, opts: [['1', '1 · Muito ruim'], ['2', '2 · Ruim'], ['3', '3 · Regular'], ['4', '4 · Boa'], ['5', '5 · Ótima']] }),
+      Q('stress', 'Nível de estresse no dia a dia (opcional)', 'sel', { opts: [['1', '1 · Muito baixo'], ['2', '2 · Baixo'], ['3', '3 · Médio'], ['4', '4 · Alto'], ['5', '5 · Muito alto']] }),
+      Q('commit', 'Qual é o seu nível de comprometimento? (1 a 10)', 'sel', { req: 1, int: 1, opts: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => [String(n), String(n)]) }),
+      Q('notes', 'Algo mais que precisamos saber? (opcional)', 'area', { max: 1000, ph: 'Preferências, horários, dificuldades, metas com prazo…' }),
+    ] },
+  ];
+  // perguntas que saíram na v2: só para mostrar respostas antigas
+  const OLD_QS = [
+      Q('work_type', 'Como é o seu trabalho?', 'sel', { opts: [['sedentario', 'Sentado a maior parte do tempo'], ['em_pe', 'Em pé / andando'], ['ativo', 'Esforço físico'], ['turnos', 'Turnos / horários variáveis']] }),
       Q('meal_times', 'Em quais horários você costuma comer? (opcional)', 'area', { max: 300, ph: 'Ex.: 8h café, 12h almoço, 16h lanche, 20h jantar' }),
       Q('eats_out', 'Com que frequência come fora de casa? (opcional)', 'sel', { opts: [['raramente', 'Raramente'], ['1a2', '1 a 2 vezes por semana'], ['3a5', '3 a 5 vezes por semana'], ['todos', 'Quase todos os dias']] }),
       Q('food_likes', 'Alimentos que você gosta e quer no plano (opcional)', 'area', { max: 400 }),
       Q('food_dislikes', 'Alimentos que você não come ou não gosta (opcional)', 'area', { max: 400 }),
       Q('prev_diets', 'Já fez dietas antes? Como foi? (opcional)', 'area', { max: 500 }),
-      Q('water', 'Quantos litros de água você bebe por dia?', 'num', { req: 1, u: 'L', ph: '1,8', min: 0, max: 10 }),
       Q('alcohol', 'Consumo de álcool (opcional)', 'sel', { opts: [['nunca', 'Não bebo'], ['social', 'Socialmente'], ['semanal', 'Toda semana'], ['diario', 'Quase todo dia']] }),
       Q('smoker', 'Tabagismo (opcional)', 'sel', { opts: [['nao', 'Não fumo'], ['sim', 'Fumo'], ['ex', 'Ex-fumante']] }),
-    ] },
-    { t: 'Sono e bem-estar', qs: [
-      Q('sleep_h', 'Quantas horas você dorme por noite?', 'num', { req: 1, u: 'h', ph: '7', min: 2, max: 14 }),
-      Q('sleep_q', 'Como é a qualidade do seu sono?', 'sel', { req: 1, opts: [['1', '1 · Muito ruim'], ['2', '2 · Ruim'], ['3', '3 · Regular'], ['4', '4 · Boa'], ['5', '5 · Ótima']] }),
       Q('tired', 'Você acorda cansado(a)? (opcional)', 'sel', { opts: [['nao', 'Não'], ['as_vezes', 'Às vezes'], ['sempre', 'Quase sempre']] }),
-      Q('stress', 'Nível de estresse no dia a dia (opcional)', 'sel', { opts: [['1', '1 · Muito baixo'], ['2', '2 · Baixo'], ['3', '3 · Médio'], ['4', '4 · Alto'], ['5', '5 · Muito alto']] }),
       Q('bowel', 'Funcionamento do intestino (opcional)', 'sel', { opts: [['regular', 'Regular'], ['constipacao', 'Prisão de ventre'], ['diarreia', 'Tendência a diarreia'], ['irregular', 'Irregular']] }),
-    ] },
-    { t: 'Compromisso', qs: [
-      Q('commit', 'Qual é o seu nível de comprometimento? (1 a 10)', 'sel', { req: 1, int: 1, opts: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => [String(n), String(n)]) }),
-      Q('notes', 'Algo mais que precisamos saber? (opcional)', 'area', { max: 1000, ph: 'Preferências, horários, dificuldades, metas com prazo…' }),
-    ] },
   ];
   const QS = SECTIONS.flatMap(s => s.qs);
   const QMAP = Object.fromEntries(QS.map(q => [q.k, q]));
@@ -145,6 +143,12 @@
     if (typeof document === 'undefined' || document.getElementById('avcss')) return;
     const s = document.createElement('style'); s.id = 'avcss';
     s.textContent = `
+.av-eyb{font-size:12px;font-weight:800;letter-spacing:.06em;color:var(--ac2,var(--ac));text-transform:uppercase;margin-bottom:8px}
+.av-sum{border-top:1px solid var(--s3)}.av-sum:first-child{border-top:none}.av-sum summary{display:flex;align-items:center;gap:10px;padding:12px 0;cursor:pointer;list-style:none}.av-sum summary::-webkit-details-marker{display:none}.av-sum summary>span{flex:1;min-width:0;display:flex;flex-direction:column}.av-sum summary small{color:var(--mu);font-size:13px}.av-sum summary i{color:var(--mu);font-style:normal;transition:transform .15s}.av-sum[open] summary i{transform:rotate(90deg)}
+.av-prog{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:4px 0 6px}.av-prog i{height:5px;border-radius:3px;background:var(--s3)}.av-prog i.on{background:var(--ac)}
+.av-progl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;font-size:11px;color:var(--mu)}.av-progl .on{color:var(--ac2,var(--ac));font-weight:700}
+.av-nav{display:grid;grid-template-columns:110px 1fr;gap:10px;margin-top:14px}.av-nav .btn{margin:0}
+.av-more{border:1px dashed var(--s3);border-radius:var(--r,14px);padding:12px 14px;margin:10px 0}.av-more summary{cursor:pointer;list-style:none}.av-more summary::-webkit-details-marker{display:none}.av-more summary small{display:block;color:var(--mu);font-size:13px;margin-top:2px}.av-more[open] summary{margin-bottom:4px}
 .av-sec{margin:24px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mu);font-weight:600}
 .av-q{background:var(--s1);border-radius:var(--r,14px);padding:14px;margin:10px 0}
 .av-q.err{outline:2px solid var(--bad)}
@@ -201,8 +205,10 @@ html[data-theme=light] .av-q{box-shadow:0 1px 2px rgba(16,24,40,.06)}
   }
 
   function formHtml(mode, ctx) {
-    const D = AV.draft, A = D.a;
-    let n = 0, h = '';
+    const D = AV.draft, A = D.a, last = SECTIONS.length - 1, st = Math.min(AV.step || 0, last);
+    AV.formMode = mode;
+    let n = 0, h = `<div class="av-prog" aria-label="Etapa ${st + 1} de ${SECTIONS.length}">${SECTIONS.map((x, i) => `<i class="${i <= st ? 'on' : ''}"></i>`).join('')}</div><div class="av-progl">${SECTIONS.map((x, i) => `<span class="${i === st ? 'on' : ''}">${esc(x.t)}</span>`).join('')}</div>`;
+    h += `<div class="av-step" data-st="0" ${st !== 0 ? 'hidden' : ''}>`;
     if (mode === 'public') {
       h += `<div class="av-q" id="avc_name"><div class="t"><span class="av-n">${++n}</span><span>Nome completo</span></div><input id="av_name" autocomplete="name" maxlength="80" value="${esc(D.name)}"><div class="av-msg" id="avm_name" hidden></div></div>`;
       h += `<div class="av-q" id="avc_email"><div class="t"><span class="av-n">${++n}</span><span>E-mail</span></div><input id="av_email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" maxlength="254" value="${esc(D.email)}"><div class="av-help">Enviaremos para este e-mail um código para você criar sua senha e ver sua análise.</div><div class="av-msg" id="avm_email" hidden></div></div>`;
@@ -210,10 +216,17 @@ html[data-theme=light] .av-q{box-shadow:0 1px 2px rgba(16,24,40,.06)}
     if (mode !== 'public') {
       h += `<div class="av-q" id="avc_name"><div class="t"><span class="av-n">${++n}</span><span>${mode === 'master' ? 'Nome do aluno' : 'Seu nome'}</span></div><input id="av_name" autocomplete="name" maxlength="80" value="${esc(D.name)}"><div class="av-help">É o nome de exibição no app${mode === 'master' ? ' para este aluno' : ''}. Alterar aqui também altera no Perfil.</div><div class="av-msg" id="avm_name" hidden></div></div>`;
     }
-    for (const s of SECTIONS) {
-      h += `<div class="av-sec">${esc(s.t)}</div>`;
-      for (const q of s.qs) { const hide = needF(q) && A.sex !== 'F'; h += qHtml(q, A[q.k], hide ? '' : ++n, A); }
-    }
+    SECTIONS.forEach((s, si) => {
+      if (si > 0) h += `</div><div class="av-step" data-st="${si}" ${st !== si ? 'hidden' : ''}>`;
+      h += `<div class="av-sec">Etapa ${si + 1} de ${SECTIONS.length} · ${esc(s.t)}</div>`;
+      const fita = s.qs.filter(q => q.grp === 'fita');
+      for (const q of s.qs) {
+        if (q === fita[0]) h += `<details class="av-more" ${fita.some(x => A[x.k] != null && A[x.k] !== '') ? 'open' : ''}><summary><b>Medidas com fita</b> <span class="mu">(opcional)</span><small>Pescoço, cintura, abdômen e quadril. Seu treinador também pode medir na avaliação física.</small></summary>`;
+        const hide = needF(q) && A.sex !== 'F'; h += qHtml(q, A[q.k], hide ? '' : ++n, A);
+        if (q === fita[fita.length - 1]) h += `</details>`;
+      }
+      if (si < last) h += `<div class="av-nav">${si > 0 ? '<button class="btn" data-act="avStep" data-d="-1">Voltar</button>' : '<span></span>'}<button class="btn pri" data-act="avStep" data-d="1">Continuar</button></div>`;
+    });
     const who = CFG.CONTROLLER ? esc(CFG.CONTROLLER) : 'o profissional responsável pelo seu acompanhamento';
     const consentTxt = mode === 'master'
       ? 'Confirmo que o cliente foi informado e autorizou o registro destes dados pessoais, inclusive de saúde, para elaboração do plano alimentar e de treino.'
@@ -224,8 +237,8 @@ html[data-theme=light] .av-q{box-shadow:0 1px 2px rgba(16,24,40,.06)}
       if (CFG.TURNSTILE_SITEKEY) h += `<div id="avCf" style="margin:12px 0"></div>`;
       h += `<div class="av-note">📷 As <b>4 fotos</b> (frente, costas e lados) são enviadas depois, dentro do app, quando você criar sua senha.</div>`;
     }
-    h += `<div id="avErr" class="av-msg" hidden></div><button class="btn pri block" data-act="avSubmit" id="avBtn" style="margin-top:12px">${mode === 'public' ? 'Enviar avaliação' : 'Salvar avaliação'}</button>`;
-    h += `<p class="mu xs" style="margin-top:10px">Esta avaliação não substitui avaliação médica. Use o resultado como ponto de partida.</p>`;
+    h += `<div id="avErr" class="av-msg" hidden></div><div class="av-nav"><button class="btn" data-act="avStep" data-d="-1">Voltar</button><button class="btn pri" data-act="avSubmit" id="avBtn">${mode === 'public' ? 'Enviar avaliação' : 'Salvar avaliação'}</button></div>`;
+    h += `<p class="mu xs" style="margin-top:10px">Esta avaliação não substitui avaliação médica. Use o resultado como ponto de partida.</p></div>`;
     return h;
   }
 
@@ -288,13 +301,18 @@ html[data-theme=light] .av-q{box-shadow:0 1px 2px rgba(16,24,40,.06)}
     return { out, err };
   }
 
+  function stepOf(k) { if (k === 'name' || k === 'email') return 0; if (k === 'consent' || k === 'form') return SECTIONS.length - 1; const i = SECTIONS.findIndex(s => s.qs.some(q => q.k === k)); return i < 0 ? (AV.step || 0) : i; }
+  function stepErrors(err) { const st = AV.step || 0, e = {}; for (const k in err) if (stepOf(k) === st) e[k] = err[k]; return e; }
   function showErrors(err) {
+    const keys = Object.keys(err), st = AV.step || 0;
+    const lo = keys.length ? Math.min(...keys.map(stepOf)) : st;
+    if (lo !== st) { AV.step = lo; render(); setTimeout(() => showErrors(err), 0); return; }
     document.querySelectorAll('#avForm .av-q.err').forEach(c => c.classList.remove('err'));
     document.querySelectorAll('#avForm .av-msg').forEach(m => { m.hidden = true; });
     let first = null;
     for (const [k, msg] of Object.entries(err)) {
       const c = document.getElementById('avc_' + k), m = document.getElementById('avm_' + k);
-      if (c) { c.classList.add('err'); if (!first) first = c; }
+      if (c) { c.classList.add('err'); const dt = c.closest('details'); if (dt) dt.open = true; if (!first && !c.closest('.av-step[hidden]')) first = c; }
       if (m) { m.textContent = msg; m.hidden = false; }
     }
     if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -344,7 +362,7 @@ html[data-theme=light] .av-q{box-shadow:0 1px 2px rgba(16,24,40,.06)}
     finally { if (btn.isConnected) { btn.disabled = false; btn.textContent = label; } }
   }
 
-  function clearDraft() { AV.draft = { name: '', email: '', a: {}, consent: false }; }
+  function clearDraft() { AV.draft = { name: '', email: '', a: {}, consent: false }; AV.step = 0; }
 
   /* ---------- telas PÚBLICAS (sem login) ---------- */
   function pubHeader(title, sub) {
@@ -354,7 +372,7 @@ html[data-theme=light] .av-q{box-shadow:0 1px 2px rgba(16,24,40,.06)}
   function viewPublic() {
     const s = AV.state;
     if (s.mode === 'form') {
-      return `<div style="max-width:560px;margin:0 auto">${pubHeader('Avaliação gratuita', 'Dieta, treino e saúde · leva uns 8 minutos')}
+      return `<div style="max-width:560px;margin:0 auto">${pubHeader('Avaliação gratuita', '4 etapas · leva uns 5 minutos')}
         <div class="av-note">Responda com calma. Ao enviar, você recebe por e-mail um <b>código de acesso</b> para criar sua senha; só então terá acesso à sua análise. Seus dados de saúde ficam visíveis apenas para você e para o profissional responsável.</div>
         <div id="avForm">${formHtml('public')}</div></div>`;
     }
@@ -500,41 +518,61 @@ html[data-theme=light] .av-q{box-shadow:0 1px 2px rgba(16,24,40,.06)}
   }
 
   /* ---------- análise: HTML ---------- */
+  // v2: números em quadrinhos; respostas resumidas por etapa, abrindo ao tocar
+  const clrOf = c => c === 'ok' ? 'var(--ok)' : c === 'bad' ? 'var(--bad)' : c === 'warn' ? 'var(--warn)' : 'var(--mu)';
+  const tile = (l, v, s, c) => `<div><span>${l}</span><b>${v}</b>${s ? `<span style="color:${clrOf(c)};font-weight:${c ? 700 : 400}">${s}</span>` : ''}</div>`;
   function resultHtml(row) {
     const R = analyze(row), a = row.answers || {};
     let h = '';
     if (R.flags.length) h += R.flags.map(f => `<div class="sug down" style="margin:8px 0">⚠️ ${esc(f)}</div>`).join('');
-    h += `<div class="card" style="padding:6px 14px">`;
-    h += kv('Peso', R.w ? f1(R.w) + ' kg' : '—', a.goal_weight ? 'Meta: ' + f1(a.goal_weight) + ' kg' : '');
-    if (R.imc) h += kv('IMC', f1(R.imc.v), R.imc.txt, R.imc.c);
-    if (R.tmb) h += kv('Taxa metabólica basal', R.tmb + ' kcal', 'Mifflin-St Jeor', 'ok');
-    if (R.tdee) h += kv('Gasto diário estimado', R.tdee + ' kcal', `TMB × ${String(R.factor).replace('.', ',')} (nível de atividade informado)`, 'ok');
-    if (R.bfScale != null) h += kv('% gordura · balança', f1(R.bfScale) + ' %', 'Bioimpedância (estimativa)' + (R.bfc && R.bf === R.bfScale ? ' · ' + R.bfc.txt : ''), R.bfc && R.bf === R.bfScale ? R.bfc.c : 'ok');
-    if (R.bfTape) h += kv('% gordura · fita', f1(R.bfTape.v) + ' %', R.bfTape.method + (R.bfc && R.bf === R.bfTape.v ? ' · ' + R.bfc.txt : ''), R.bfc && R.bf === R.bfTape.v ? R.bfc.c : 'ok');
-    if (R.fat != null) h += kv('Massa gorda / magra', `${f1(R.fat)} / ${f1(R.lean)} kg`, R.bfScale != null ? 'Calculado com o % da balança' : 'Calculado com o % da fita');
-    if (R.rcq) h += kv('Cintura/quadril', R.rcq.v.toString().replace('.', ','), R.rcq.txt, R.rcq.c);
-    if (R.rce) h += kv('Cintura/altura', R.rce.v.toString().replace('.', ','), R.rce.txt, R.rce.c);
-    if (R.waterGoal) h += kv('Água sugerida', f1(R.waterGoal) + ' L/dia', a.water != null ? 'Você informou ' + f1(a.water) + ' L' : '', a.water != null && a.water < R.waterGoal * 0.8 ? 'warn' : 'ok');
-    if (a.sleep_h != null) h += kv('Sono', f1(a.sleep_h) + ' h', a.sleep_h < 7 ? 'Abaixo do recomendado (7–9 h)' : 'Dentro do recomendado', a.sleep_h < 7 ? 'warn' : 'ok');
-    h += `</div>`;
-    if (R.bfScale != null) h += `<p class="mu xs">O % de gordura da balança é uma estimativa por bioimpedância e oscila com hidratação, horário e refeições. Compare sempre medidas feitas nas mesmas condições.</p>`;
-    h += `<p class="mu xs">Valores estimados por fórmulas de campo; servem como ponto de partida e não substituem avaliação profissional.</p>`;
+    const t = [];
+    t.push(tile(a.goal_weight ? 'Peso · meta' : 'Peso', R.w ? f1(R.w) + ' kg' : '—', a.goal_weight ? 'meta ' + f1(a.goal_weight) + ' kg' : '', a.goal_weight ? 'ok' : ''));
+    if (R.imc) t.push(tile('IMC', f1(R.imc.v), R.imc.txt, R.imc.c));
+    if (R.tdee) t.push(tile('Gasto diário', R.tdee.toLocaleString('pt-BR') + ' kcal', 'basal ' + R.tmb.toLocaleString('pt-BR') + ' kcal'));
+    else if (R.tmb) t.push(tile('Metabolismo basal', R.tmb.toLocaleString('pt-BR') + ' kcal', 'Mifflin-St Jeor'));
+    if (R.bf != null) t.push(tile('% de gordura', f1(R.bf) + ' %', (R.bfScale != null ? 'balança' : 'fita') + (R.bfc ? ' · ' + R.bfc.txt : ''), R.bfc ? R.bfc.c : ''));
+    if (R.waterGoal) t.push(tile('Água', f1(R.waterGoal) + ' L/dia', a.water != null ? 'você bebe ' + f1(a.water) + ' L' : '', a.water != null && a.water < R.waterGoal * 0.8 ? 'warn' : 'ok'));
+    if (a.sleep_h != null) t.push(tile('Sono', f1(a.sleep_h) + ' h', a.sleep_h < 7 ? 'abaixo de 7 h' : 'dentro do recomendado', a.sleep_h < 7 ? 'warn' : 'ok'));
+    h += `<div class="card"><div class="av-eyb">Ponto de partida</div><div class="avt">${t.join('')}</div>`;
+    const more = [];
+    if (R.fat != null) more.push(kv('Massa gorda / magra', `${f1(R.fat)} / ${f1(R.lean)} kg`));
+    if (R.rcq) more.push(kv('Cintura/quadril', R.rcq.v.toString().replace('.', ','), R.rcq.txt, R.rcq.c));
+    if (R.rce) more.push(kv('Cintura/altura', R.rce.v.toString().replace('.', ','), R.rce.txt, R.rce.c));
+    if (R.bfScale != null && R.bfTape) more.push(kv('% gordura · fita', f1(R.bfTape.v) + ' %', R.bfTape.method));
+    if (more.length) h += `<div style="margin-top:8px">${more.join('')}</div>`;
+    h += `<p class="mu xs" style="margin:8px 0 0">Estimativas por fórmulas de campo. Não substituem avaliação profissional.${R.bfScale != null ? ' O % da balança oscila com hidratação, horário e refeições.' : ''}</p></div>`;
     return h;
   }
 
+  const SUMMARY = { 'Você e medidas': ['weight', 'height'], 'Objetivo e rotina': ['goal', 'train_days', 'train_place'], 'Saúde': ['injuries'], 'Hábitos e compromisso': ['meals', 'stress', 'commit'] };
+  function fmtAns(q, v) {
+    if (q.t === 'parq') return PARQ.map((t, i) => `<div class="xs" style="margin-top:4px">${i + 1}. ${esc(t)} — <b style="color:${v[i] ? 'var(--warn)' : 'var(--ok)'}">${v[i] ? 'Sim' : 'Não'}</b></div>`).join('');
+    if (q.t === 'sel' || q.t === 'radio' || q.t === 'radio2') return esc(optLabel(q, v));
+    if (q.t === 'date') return esc(isoToBR(v));
+    if (q.t === 'num') return esc(f1(v)) + ' ' + esc(q.u || '');
+    return esc(v).replace(/\n/g, '<br>');
+  }
+  function shortAns(q, v) {
+    if (q.k === 'train_days') return v + ' dia' + (+v === 1 ? '' : 's') + '/semana';
+    if (q.k === 'meals') return v + ' refeiç' + (+v === 1 ? 'ão' : 'ões');
+    if (q.k === 'stress') return 'estresse ' + String(optLabel(q, v)).replace(/^\d · /, '').toLowerCase();
+    if (q.k === 'commit') return 'compromisso ' + v + '/10';
+    if (q.k === 'injuries') return 'Lesões: ' + String(v).slice(0, 60);
+    if (q.t === 'num') return f1(v) + ' ' + (q.u || '');
+    return String(q.t === 'sel' ? optLabel(q, v) : v);
+  }
   function answersHtml(row) {
     const a = row.answers || {};
-    const fmt = (q, v) => {
-      if (q.t === 'parq') return PARQ.map((t, i) => `<div class="xs" style="margin-top:4px">${i + 1}. ${esc(t)} — <b style="color:${v[i] ? 'var(--warn)' : 'var(--ok)'}">${v[i] ? 'Sim' : 'Não'}</b></div>`).join('');
-      if (q.t === 'sel' || q.t === 'radio' || q.t === 'radio2') return esc(optLabel(q, v));
-      if (q.t === 'date') return esc(isoToBR(v));
-      if (q.t === 'num') return esc(f1(v)) + ' ' + esc(q.u || '');
-      return esc(v).replace(/\n/g, '<br>');
-    };
-    return SECTIONS.map(s => {
-      const rows = s.qs.filter(q => a[q.k] != null && a[q.k] !== '').map(q => `<div style="padding:8px 0;border-top:1px solid var(--s3)"><div class="mu xs">${esc(q.l)}</div><div class="sm">${fmt(q, a[q.k])}</div></div>`).join('');
-      return rows ? `<h3>${esc(s.t)}</h3><div class="card" style="padding:4px 14px">${rows}</div>` : '';
+    const rowsOf = qs => qs.filter(q => a[q.k] != null && a[q.k] !== '').map(q => `<div style="padding:8px 0;border-top:1px solid var(--s3)"><div class="mu xs">${esc(q.l)}</div><div class="sm">${fmtAns(q, a[q.k])}</div></div>`).join('');
+    let h = '<h3>Respostas</h3><div class="card" style="padding:0 14px">';
+    h += SECTIONS.map(s => {
+      const r = rowsOf(s.qs); if (!r) return '';
+      const sm = (SUMMARY[s.t] || []).map(k => { const q = s.qs.find(x => x.k === k); return q && a[k] != null && a[k] !== '' ? esc(shortAns(q, a[k])) : null; }).filter(Boolean).join(' · ');
+      return `<details class="av-sum"><summary><span><b>${esc(s.t)}</b><small>${sm || 'Ver respostas'}</small></span><i aria-hidden="true">›</i></summary>${r}</details>`;
     }).join('');
+    const old = rowsOf(OLD_QS);
+    if (old) h += `<details class="av-sum"><summary><span><b>Outras respostas</b><small>Perguntas da versão anterior do questionário</small></span><i aria-hidden="true">›</i></summary>${old}</details>`;
+    return h + '</div>';
   }
 
   /* ---------- fotos ---------- */
@@ -615,7 +653,7 @@ html[data-theme=light] .av-q{box-shadow:0 1px 2px rgba(16,24,40,.06)}
     if (p.welcome) h += `<div class="av-note">Senha criada! Esta é a sua análise. Abaixo você pode enviar as 4 fotos.</div>`;
     if (c.loading) return h + '<div class="empty">Carregando…</div>';
     if (c.err) return h + `<div class="card">Erro: ${esc(c.err)}</div>`;
-    if (!c.list.length) return h + `<div class="card"><div class="mu sm">Você ainda não respondeu o questionário de saúde, dieta e treino. Leva uns 8 minutos.</div><div style="height:10px"></div><button class="btn pri block" data-act="avNew">Responder questionário</button></div>`;
+    if (!c.list.length) return h + `<div class="card"><div class="mu sm">Você ainda não respondeu o questionário de saúde, dieta e treino. Leva uns 5 minutos.</div><div style="height:10px"></div><button class="btn pri block" data-act="avNew">Responder questionário</button></div>`;
     const L = c.list[0];
     h += `<h3>Última · ${esc(new Date(L.created_at).toLocaleDateString('pt-BR'))}</h3>` + resultHtml(L) + photosHtml(L, true);
     setTimeout(() => loadPhotos(L), 0);
@@ -696,6 +734,11 @@ html[data-theme=light] .av-q{box-shadow:0 1px 2px rgba(16,24,40,.06)}
     VIEWS.avuser = viewUser;
     VIEWS.avall = viewAll;
     Object.assign(ACT, {
+      avStep: d => {
+        readDraft(); const dir = +d.d, st = AV.step || 0;
+        if (dir > 0) { const e = stepErrors(collect(AV.formMode || 'self').err); delete e.consent; if (Object.keys(e).length) { showErrors(e); toast('Revise os campos destacados'); return; } }
+        AV.step = Math.max(0, Math.min(SECTIONS.length - 1, st + dir)); render(); scrollTo(0, 0);
+      },
       avOpen: () => { AV.state = { mode: 'form' }; render(); scrollTo(0, 0); },
       avOpenResend: () => { AV.state = { mode: 'resend' }; render(); },
       avClose: () => { AV.state = null; render(); scrollTo(0, 0); },
@@ -743,6 +786,7 @@ html[data-theme=light] .av-q{box-shadow:0 1px 2px rgba(16,24,40,.06)}
   }
 
   AV.mine = () => (ME && SB ? loadList('mine', ME.id) : null);
+  AV.byUser = uid => (ME && SB && uid ? loadList('user', uid) : null);
   AV.CFG = CFG; AV.install = install; AV.takeover = takeover; AV.analyze = analyze; AV.SECTIONS = SECTIONS; AV.PARQ = PARQ; AV.collect = collect;
   if (typeof window !== 'undefined') window.AV = AV;
   if (typeof module !== 'undefined' && module.exports) module.exports = AV;
