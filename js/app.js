@@ -1,4 +1,4 @@
-const APP_VERSION='2.1.0';
+const APP_VERSION='2.1.1';
 const EXDIR='exercicios/';
 /* ---------- tema (preferência do aparelho) ---------- */
 const THEME_KEY='telm.theme';const MQ_DARK=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
@@ -1378,7 +1378,7 @@ function viewLogin(){const last=localStorage.getItem('telm.lastEmail')||'';
    <label class="f"><span>Senha</span><input id="lgPass" type="password" autocomplete="current-password"></label>
    <div id="lgMsg" class="sm" style="color:var(--bad);min-height:20px"></div>
    <button class="btn pri block" data-act="login" id="lgBtn">Entrar</button>
-   <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--s3)"><p class="mu sm">Ainda não tem acesso?</p><button class="btn block" data-act="avOpen">📋 Fazer minha avaliação gratuita</button><button class="btn block" data-act="avOpenCode">🔑 Tenho um código</button><button class="btn ghost block" data-act="avOpenResend">Criar ou redefinir minha senha</button></div>
+   <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--s3)"><p class="mu sm">Ainda não tem acesso?</p><button class="btn block" data-act="avOpen">📋 Fazer minha avaliação gratuita</button><button class="btn ghost block" data-act="avOpenResend">Criar ou redefinir minha senha</button></div>
    ${/^https?:/.test(SB_URL)?'':'<p class="sm" style="color:var(--bad)">Servidor não configurado.</p>'}</div>`}
 function viewDisabled(){const vb=viewBlocked();if(vb)return vb;return`<div class="login"><h1>Conta desativada</h1><p class="mu">Seu acesso foi desativado pelo administrador. Fale com ele para reativar.</p><button class="btn block" data-act="recheck">Verificar novamente</button><div style="height:8px"></div><button class="btn block" data-act="logout">Sair</button></div>`}
 async function doLogin(){const em=($('#lgEmail').value||'').trim().toLowerCase(),pw=$('#lgPass').value||'',msg=$('#lgMsg'),btn=$('#lgBtn');
