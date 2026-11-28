@@ -1,4 +1,4 @@
-const APP_VERSION='2.4.0';
+const APP_VERSION='2.5.0';
 const EXDIR='exercicios/';
 /* ---------- tema (preferência do aparelho) ---------- */
 const THEME_KEY='telm.theme';const MQ_DARK=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
@@ -2057,10 +2057,14 @@ function dietOf(lib){return lib&&lib.diet||null}
 function dietInputs(c){const a=anamOf(c.lib),k=anamBasics(c,a),Q=anamQ(c),A=Q&&Q.answers||{};
   const ev=(a.evals||[]).slice().sort((x,y)=>(y.date||'').localeCompare(x.date||'')),E=ev[0],R=E?evalCalc(E,k):null;
   const sexo=k.sex||A.sex||'',birth=k.birth||A.birth||'',idade=birth?ageAt(birth):null,altura=(E&&+E.height)||k.height||+A.height||null,peso=(E&&+E.weight)||+A.weight||null;
-  const txt=normTxt([A.allergies,A.diet_restr].filter(Boolean).join(' ')),tags=[];
+  const dt={sem_carne_vermelha:'sem carne vermelha',vegetariano:'vegetariano',vegano:'vegano'}[A.diet_type]||'';
+  const txt=normTxt([A.allergies,A.diet_restr,dt].filter(Boolean).join(' ')),tags=[];
   if(/lactose|leite/.test(txt))tags.push('lactose');if(/gluten|celiac/.test(txt))tags.push('gluten');if(/\bovo/.test(txt))tags.push('ovo');if(/peixe|frutos do mar/.test(txt))tags.push('peixe');
   if(/vegetarian|vegan|sem carne/.test(txt)){tags.push('carne');if(/vegetarian|vegan/.test(txt)){tags.push('frango');tags.push('peixe')}}else if(/carne vermelha/.test(txt))tags.push('carne');
-  return{sexo,idade,altura,peso,bf:R&&R.bf?r1(R.bf.v):null,fator:+A.activity||1.375,objetivo:({emagrecimento:'emagrecer',hipertrofia:'ganhar'})[A.goal]||'manter',tags:[...new Set(tags)],aversoes:A.food_avoid||'',fonte:{q:!!Q,av:!!E,restr:[A.allergies,A.diet_restr].filter(Boolean).join(' · ')}}}
+  return{sexo,idade,altura,peso,bf:R&&R.bf?r1(R.bf.v):null,fator:+A.activity||1.375,objetivo:({emagrecimento:'emagrecer',hipertrofia:'ganhar'})[A.goal]||'manter',tags:[...new Set(tags)],aversoes:A.food_avoid||A.food_dislikes||'',fonte:{q:!!Q,av:!!E,restr:[A.allergies,A.diet_restr,A.diet_type&&A.diet_type!=='tudo'?dietTypeTxt(A.diet_type):''].filter(Boolean).join(' · '),info:dietInfo(A)}}}
+function dietTypeTxt(v){return({tudo:'Come de tudo',sem_carne_vermelha:'Sem carne vermelha',vegetariano:'Vegetariano(a)',vegano:'Vegano(a)',outra:'Outra restrição (ver observações)'})[v]||v}
+function dietInfo(A){const L=(k,v)=>{const q=window.AV&&AV.QS.find(x=>x.k===k);if(v==null||v==='')return null;const o=q&&q.opts&&q.opts.find(x=>String(x[0])===String(v));return[q?q.l.replace(/ \(opcional\)/,'').replace(/\?$/,''):k,o?o[1]:String(v)]};
+  return[['food_likes',A.food_likes],['meal_times',A.meal_times],['hunger',A.hunger],['prep',A.prep],['cook_time',A.cook_time],['budget',A.budget],['difficulty',A.difficulty],['work_type',A.work_type]].map(([k,v])=>L(k,v)).filter(Boolean)}
 function dietForm(uid,c){if(!DGF[uid||'me']){const I=dietInputs(c),d=dietOf(c.lib),D=d&&d.draft;DGF[uid||'me']=Object.assign(I,D?{objetivo:D.objetivo,ajuste:D.metas.ajuste,macros:Object.assign({},D.metas.macros),tags:D.restricoes.tags.slice(),aversoes:D.restricoes.aversoes,refeicoes:D.refeicoes.map(r=>({k:r.k,n:r.n,h:r.h,pct:r.pct,opc:r.opcoes.length>1?3:1}))}:{ajuste:null,macros:Object.assign({},DIETA_MACROS_PADRAO),refeicoes:DIETA_REFEICOES.map(r=>Object.assign({},r))})}return DGF[uid||'me']}
 function dietSave(c){if(c.self){commit();return}clearTimeout(DGT);DGT=setTimeout(()=>anamSave(c),900)}
 function barra(v,m,cor){const p=m?Math.min(100,Math.round(v/m*100)):0;return`<div style="height:6px;border-radius:3px;background:var(--s3);overflow:hidden"><i style="display:block;height:100%;width:${p}%;background:${cor}"></i></div>`}
@@ -2080,6 +2084,7 @@ VIEWS.dieta=function({uid}){const c=anamCtx(uid);let h=hdr('Plano alimentar',c?e
     <h3>Refeições</h3><div class="card" style="padding:4px 14px">${F.refeicoes.map((r,i)=>`<div class="row" style="padding:8px 0;border-top:${i?'1px solid var(--s3)':'none'};gap:8px"><span class="sp sm"><b>${esc(r.n)}</b></span><input data-dgr="${i}" data-f="h" style="width:76px" value="${esc(r.h)}" aria-label="Horário"><input data-dgr="${i}" data-f="pct" inputmode="numeric" style="width:56px;text-align:right" value="${r.pct}" aria-label="Porcentagem do dia"><span class="mu xs">%</span></div>`).join('')}</div>${spct!==100?`<div class="sm" style="color:var(--bad);margin:6px 2px">As refeições somam ${spct}%. Precisa dar 100% (use 0% para tirar uma refeição).</div>`:''}
     <h3>Restrições</h3><div class="card"><div class="row wrap" style="gap:6px">${DIET_TAGS.map(([k,l])=>`<button class="chip ${F.tags.includes(k)?'on':''}" data-act="dTag" data-k="${k}" data-uid="${uid||''}">${l}</button>`).join('')}</div>
       <label class="f"><span>Alimentos que não come</span><input data-dgf="aversoes" maxlength="300" value="${esc(F.aversoes||'')}" placeholder="Ex.: fígado, beterraba"></label>${F.fonte.restr?`<div class="mu xs" style="margin-top:6px">Questionário: ${esc(F.fonte.restr)}</div>`:''}</div>
+    ${F.fonte.info&&F.fonte.info.length?`<h3>Do questionário</h3><div class="card" style="padding:4px 14px">${F.fonte.info.map(([l,v],i)=>`<div style="padding:8px 0;border-top:${i?'1px solid var(--s3)':'none'}"><div class="mu xs">${esc(l)}</div><div class="sm">${esc(v)}</div></div>`).join('')}</div>`:''}
     <button class="btn pri block big" data-act="dGerar" data-uid="${uid||''}" style="margin-top:12px" ${!tmb||soma!==100||spct!==100?'disabled':''}>${D?'Gerar de novo com estas metas':'Gerar cardápio · 3 opções'}</button>${D?`<button class="btn block" data-act="dCancelEdit" data-uid="${uid||''}" style="margin-top:8px">Cancelar</button>`:''}`;
     return h}
   const M=D.metas,mud=!d.pub||d.pubAt<(D.editado||D.criado),rq=!c.self&&ANM[uid]&&ANM[uid].dreq;
