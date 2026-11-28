@@ -1,4 +1,4 @@
-const APP_VERSION='2.1.3';
+const APP_VERSION='2.2.0';
 const EXDIR='exercicios/';
 /* ---------- tema (preferência do aparelho) ---------- */
 const THEME_KEY='telm.theme';const MQ_DARK=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
@@ -113,7 +113,10 @@ function shiftFuture(e,p,from,delta){const N=weeksOf(p);for(let w=Math.max(1,fro
 
 /* ---------- planos ---------- */
 function usesLoad(e){return e.kind==='load'||e.kind==='bw'}
-function newPlan(name,tplKey){const t=PERIOD_TEMPLATES[tplKey||'hip12'];return{id:uid36('p'),name:name||'Novo plano',mode:'semana',created:Date.now(),repeat:!!t.repeat,phases:clone(t.phases),weekNotes:[],sessions:[],tips:[],nutrition:[]}}
+/* Origem do plano: o aluno só exclui os planos que ele mesmo criou (p.by='aluno'). Sem marca = prescrito pelo treinador. */
+function byAluno(){return typeof ME!=='undefined'&&!!ME&&ME.role!=='master'&&!(typeof CTX!=='undefined'&&CTX&&(CTX.uid||CTX.tpl))}
+function isPresc(p){return!!ME&&ME.role!=='master'&&!!p&&p.by!=='aluno'}
+function newPlan(name,tplKey){const t=PERIOD_TEMPLATES[tplKey||'hip12'];return{id:uid36('p'),name:name||'Novo plano',mode:'semana',...(byAluno()?{by:'aluno'}:{}),created:Date.now(),repeat:!!t.repeat,phases:clone(t.phases),weekNotes:[],sessions:[],tips:[],nutrition:[]}}
 function emptyLib(){return{v:3,plans:[],activeId:null}}
 function LIB(){return CTX.lib||(S&&S.lib)||emptyLib()}
 function planById(id,lib){return(lib||LIB()).plans.find(p=>p.id===id)||null}
@@ -499,6 +502,7 @@ VIEWS.planos=function(){const lib=LIB(),u=U(),own=!u;
   h+=`<h3>Próximos</h3>${nxt.length?`<div class="card" style="padding:4px 14px">${nxt.map(row).join('')}</div>`:'<div class="card mu sm">Nenhum plano aguardando. Crie um novo para deixar na fila.</div>'}`;
   if(fin.length)h+=`<h3>Finalizados</h3><div class="card" style="padding:4px 14px">${fin.map(row).join('')}</div>`;
   h+=`<div style="height:12px"></div><button class="btn pri block" data-act="go" data-v="montar" ${ua()}>Montar em 3 perguntas</button><div style="height:8px"></div><button class="btn block" data-act="newPlan" ${ua()}>+ Novo plano (avançado)</button>`;
+  if(own&&ME&&ME.role!=='master')h+=S.req&&!S.req.done?`<div class="card" style="margin-top:12px"><div class="sm">📝 <b>Pedido de plano novo enviado</b> em ${new Date(S.req.at).toLocaleDateString('pt-BR')}.${S.req.msg?`<div class="mu xs" style="margin-top:4px">"${esc(S.req.msg)}"</div>`:''}</div><div class="row" style="gap:8px;margin-top:10px">${reqWa()?`<button class="btn smb sp" data-act="openWa" data-u="${esc(reqWa(S.req.msg))}">💬 Lembrar no WhatsApp</button>`:''}<button class="btn smb sp" data-act="reqCancel">Cancelar pedido</button></div></div>`:`<div style="height:8px"></div><button class="btn block" data-act="reqPlan">📝 Pedir plano novo ao Tel</button>`;
   return h};
 function modeHTML(p){const sem=isSem(p);let h=`<h3>Como o treino se organiza</h3><div class="seg">${[['semana','Por dia da semana'],['ciclo','Por ciclo (A, B, C…)']].map(([k,l])=>`<button class="${(sem?'semana':'ciclo')===k?'on':''}" data-act="planMode" data-m="${k}" data-pid="${p.id}" ${ua()}>${l}</button>`).join('')}</div>
   <p class="mu xs" style="margin:6px 2px 0">${sem?'Cada dia da semana tem seu treino. A semana do plano segue o calendário.':'Para alunos avançados: os treinos seguem em sequência e a semana avança quando todos forem feitos, em qualquer dia.'}</p>`;
@@ -513,7 +517,7 @@ VIEWS.plan=function({id}){const p=planById(id);if(!p)return hdr('Plano','',true)
   const lib=LIB(),own=!U(),isAct=lib.activeId===p.id,N=weeksOf(p),w=own?progOf(p).week:0;
   let h=hdr(p.name,p.tpl?`Modelo · ${tplLabel(p)}`:`${N} semanas · ${p.sessions.length} treinos/semana${isAct?' · <b class="ok">ativo</b>':''}`,true);
   const isTpl=!!CTX.tpl;if(isTpl)h+=`<div class="banner">🧩 <b>Modelo pronto.</b> As mudanças valem para os próximos planos criados a partir dele; planos já criados não mudam.${p.tpl&&p.tpl.custom?' <button class="btn ghost smb" data-act="tplReset" data-pid="'+p.id+'">Restaurar original</button>':''}</div>`;
-  if(!isTpl)h+=`<div class="row wrap" style="margin-bottom:6px">${isAct?'':`<button class="btn pri smb" data-act="activatePlan" data-pid="${p.id}" ${ua()}>Tornar ativo</button>`}<button class="btn smb" data-act="dupPlan" data-pid="${p.id}" ${ua()}>Duplicar</button><button class="btn smb" data-act="delPlan" data-pid="${p.id}" ${ua()} style="color:var(--bad)">Excluir</button></div>`;
+  if(!isTpl)h+=`<div class="row wrap" style="margin-bottom:6px">${isAct?'':`<button class="btn pri smb" data-act="activatePlan" data-pid="${p.id}" ${ua()}>Tornar ativo</button>`}<button class="btn smb" data-act="dupPlan" data-pid="${p.id}" ${ua()}>Duplicar</button>${isPresc(p)?'<span class="pill" title="Só o seu treinador pode excluir">Prescrito pelo Tel</span>':`<button class="btn smb" data-act="delPlan" data-pid="${p.id}" ${ua()} style="color:var(--bad)">Excluir</button>`}</div>`;
   h+=`<div class="card"><label class="f" style="margin-top:0"><span>Nome do plano</span><input data-plf="name" data-pid="${p.id}" value="${esc(p.name)}"></label>
     ${p.tpl?'':`<div class="sw"><span>Repetir automaticamente ao terminar<div class="mu xs">Bom para planos de manutenção contínua</div></span><input type="checkbox" data-plf="repeat" data-pid="${p.id}" ${p.repeat?'checked':''}></div>`}</div>`;
   if(!isTpl)h+=modeHTML(p);
@@ -691,8 +695,8 @@ Object.assign(ACT,{
   activatePlan:d=>{const lib=LIB(),p=planOf(d);const done=()=>{lib.activeId=p.id;psave();render();toast(p.name+' agora é o plano ativo')};
     if(!U()&&S.prog[p.id]&&S.prog[p.id].week>1)modal('Tornar ativo',`Você já tinha avançado até a semana ${S.prog[p.id].week} neste plano.`,[{label:'Recomeçar na S1',fn:()=>{S.prog[p.id]={week:1,round:(S.prog[p.id].round||1)+1};done()}},{label:'Continuar',cls:'pri',fn:done}]);
     else if(S.active&&!U())toast('Finalize o treino em andamento antes');else done()},
-  dupPlan:d=>{const lib=LIB(),p=planOf(d);const c=clone(p);c.id=uid36('p');c.name=p.name+' (cópia)';c.created=Date.now();lib.plans.push(c);psave();V.stack.pop();go('plan',{id:c.id,uid:U()});toast('Plano duplicado')},
-  delPlan:d=>{const lib=LIB(),p=planOf(d);const nLogs=U()?0:S.logs.filter(L=>L.planId===p.id).length;
+  dupPlan:d=>{const lib=LIB(),p=planOf(d);const c=clone(p);c.id=uid36('p');c.name=p.name+' (cópia)';c.created=Date.now();if(byAluno())c.by='aluno';else delete c.by;lib.plans.push(c);psave();V.stack.pop();go('plan',{id:c.id,uid:U()});toast('Plano duplicado')},
+  delPlan:d=>{const lib=LIB(),p=planOf(d);if(isPresc(p)){modal('Plano prescrito pelo Tel',`<p class="sm" style="margin-top:0"><b>${esc(p.name)}</b> foi montado pelo seu treinador e só ele pode excluir.</p><p class="sm mu">Quer um plano diferente? Crie o seu em <b>Montar em 3 perguntas</b> ou peça um plano novo ao Tel.</p>`,[{label:'Pedir plano novo',cls:'pri',fn:()=>ACT.reqPlan({})},{label:'Fechar'}]);return}const nLogs=U()?0:S.logs.filter(L=>L.planId===p.id).length;
     confirmBox('Excluir plano',`Excluir <b>${esc(p.name)}</b>?${nLogs?` Os ${nLogs} treinos já registrados continuam no histórico.`:''}`,'Excluir',()=>{lib.plans=lib.plans.filter(x=>x!==p);if(lib.activeId===p.id)lib.activeId=lib.plans[0]?lib.plans[0].id:null;psave();V.stack.pop();render()},true)},
   addSess:d=>{const p=planOf(d);const id=uid36('s');p.sessions.push({id,name:'Treino '+String.fromCharCode(65+p.sessions.length),groups:'',duration:'',notes:'',cardio:'',exercises:[]});psave();go('sessedit',{id,pid:p.id,uid:U()})},
   dupSess:d=>{const p=planOf(d),s=sessIn(p,d.sid);const c=clone(s);c.id=uid36('s');c.name=s.name.replace(/\s([A-Z])$/,(m,l)=>' '+String.fromCharCode(l.charCodeAt(0)+1));if(c.name===s.name)c.name+=' (2)';c.exercises.forEach(e=>e.id=uid36('e'));
@@ -1304,7 +1308,7 @@ VIEWS.ajuda=function(){
 
 /* ================= NUVEM: login, sincronização e painel master ================= */
 function hsh(str){let h=5381;for(let i=0;i<str.length;i++)h=((h<<5)+h+str.charCodeAt(i))|0;return h.toString(36)+':'+str.length}
-function stateDoc(){return{v:3,prog:S.prog,settings:S.settings,active:S.active||null,body:S.body||null}}
+function stateDoc(){return{v:3,prog:S.prog,settings:S.settings,active:S.active||null,body:S.body||null,req:S.req||null,reqDone:S.reqDone||null}}
 function baseHashes(){const y=S._sync;y.progH=hsh(JSON.stringify(S.lib));y.stateH=hsh(JSON.stringify(stateDoc()))}
 function detect(){const y=S._sync;const ph=hsh(JSON.stringify(S.lib));if(ph!==y.progH){y.progH=ph;y.progEd=Date.now();y.progDirty=true}
   const sh=hsh(JSON.stringify(stateDoc()));if(sh!==y.stateH){y.stateH=sh;y.stateEd=Date.now();y.stateDirty=true}}
@@ -1348,7 +1352,7 @@ async function sync(manual){
     const{data:doc,error:de}=await SB.from('user_docs').select('program,program_edited,state,state_edited').eq('user_id',uid).maybeSingle();if(de)throw de;
     if(doc){
       if(+doc.program_edited>y.progEd&&!y.progDirty){const lib=libFrom(doc.program);if(lib){S.lib=lib;migrate();y.progEd=+doc.program_edited;y.progH=hsh(JSON.stringify(S.lib));changed=true}}
-      if(+doc.state_edited>y.stateEd&&!y.stateDirty&&doc.state&&doc.state.prog){const st=doc.state;S.prog=st.prog||S.prog;if(st.body)S.body=st.body;S.settings=Object.assign(S.settings,st.settings||{});const ra=st.active;if(ra&&ra.id&&!S.logs.some(L=>L.id===ra.id)&&(!S.active||S.active.id===ra.id)){const was=!!S.active;S.active=ra;restoreTimer();if(!was)RESUMED=true}migrate();y.stateEd=+doc.state_edited;y.stateH=hsh(JSON.stringify(stateDoc()));changed=true}
+      if(+doc.state_edited>y.stateEd&&!y.stateDirty&&doc.state&&doc.state.prog){const st=doc.state;S.prog=st.prog||S.prog;if(st.body)S.body=st.body;if('req' in st)S.req=st.req;if(st.reqDone)S.reqDone=st.reqDone;S.settings=Object.assign(S.settings,st.settings||{});const ra=st.active;if(ra&&ra.id&&!S.logs.some(L=>L.id===ra.id)&&(!S.active||S.active.id===ra.id)){const was=!!S.active;S.active=ra;restoreTimer();if(!was)RESUMED=true}migrate();y.stateEd=+doc.state_edited;y.stateH=hsh(JSON.stringify(stateDoc()));changed=true}
     }
     // baixa treinos novos/alterados
     const since=y.lastPull?new Date(Date.parse(y.lastPull)-5*60e3).toISOString():'1970-01-01T00:00:00Z';let from=0,maxU=y.lastPull;
@@ -1637,6 +1641,10 @@ VIEWS.finPlans=function(){let h=hdr('Planos de cobrança','',true);if(!FIN){load
   return h+`<div class="card" style="padding:4px 14px;margin-top:12px">${FIN.plans.map(p=>`<div class="li tap" data-act="finPlanEdit" data-id="${p.id}"><div class="t"><b>${esc(p.name)}${p.active?'':' <span class="mu sm">· inativo</span>'}</b><span class="mu sm">${perLbl(p.months)}</span></div><b>${brl(p.price)}</b><span class="mu">›</span></div>`).join('')}</div><p class="mu xs" style="margin:6px 2px">Mudar o valor de um plano não altera as assinaturas já feitas. Planos inativos deixam de aparecer para novas assinaturas.</p>`};
 VIEWS.finCfg=function(){let h=hdr('Configurações','Financeiro',true);if(!FIN){loadFin();return h+'<div class="empty">Carregando…</div>'}if(FIN.err)return h+`<div class="card">${esc(FIN.err)}</div>`;const s=FIN.st;
   return h+`<h3>Recebimento</h3><div class="card"><label class="f" style="margin-top:0"><span>Chave Pix</span><input id="fcPix" maxlength="140" autocapitalize="off" value="${esc(s.pix_key||'')}" placeholder="CPF, e-mail, celular ou chave aleatória"></label><label class="f"><span>Nome de quem recebe</span><input id="fcName" maxlength="80" value="${esc(s.pix_name||'')}" placeholder="ex: Telmo Morais"></label></div>
+  <h3>Teste grátis</h3><div class="card"><label class="f" style="margin-top:0"><span>Dias de acesso grátis para aluno novo sem plano</span><input id="fcTrial" inputmode="numeric" maxlength="2" value="${s.trial_days??''}" placeholder="vazio = teste grátis desligado"></label>
+    <p class="mu xs" style="margin:6px 0 0">${s.trial_days?`<b>Ligado:</b> aluno sem plano financeiro usa o app por ${s.trial_days} dia(s) a partir do cadastro; depois perde o acesso até você definir o plano. Na ficha do aluno dá para dar +7 dias.`:'<b>Desligado:</b> aluno sem plano usa o app sem limite de dias.'}</p></div>
+  <h3>Seu WhatsApp</h3><div class="card"><label class="f" style="margin-top:0"><span>Número com DDD (os alunos falam com você por ele)</span><input id="fcWa" inputmode="tel" maxlength="20" value="${esc(s.coach_whatsapp||'')}" placeholder="(81) 99999-0000"></label>
+    <p class="mu xs" style="margin:6px 0 0">Usado no pedido de plano novo e no fim do teste grátis.</p></div>
   <h3>Avisos de vencimento</h3><div class="card"><label class="f" style="margin-top:0"><span>Avisar quantos dias antes do vencimento</span><input id="fcBefore" inputmode="numeric" maxlength="2" value="${s.alert_days_before??''}" placeholder="vazio = sem aviso antecipado"></label>
     <div class="sw"><span>Avisar no dia do vencimento</span><input type="checkbox" id="fcOnDue" ${s.alert_on_due!==false?'checked':''}></div>
     <p class="mu xs" style="margin:6px 0 0">Os avisos aparecem para o aluno na tela <b>Hoje</b> do app e para você no Financeiro.</p></div>
@@ -1646,12 +1654,14 @@ VIEWS.finCfg=function(){let h=hdr('Configurações','Financeiro',true);if(!FIN){
 
 /* ===== master: ficha do aluno ===== */
 function finCard(u){let F=UFIN[u.id];
-  if(!F){UFIN[u.id]={loading:true};Promise.all([SB.from('fin_subscriptions').select('*').eq('user_id',u.id).eq('active',true).maybeSingle(),SB.from('fin_invoices').select('*').eq('user_id',u.id).order('due_date',{ascending:false}).limit(8)]).then(([a,b])=>{const e=a.error||b.error;UFIN[u.id]=e?{err:friendlyErr(e)}:{sub:a.data,inv:b.data||[]};const t=topV();if(t&&t.view==='user'&&t.params.id===u.id)render()});F=UFIN[u.id]}
+  if(!F){UFIN[u.id]={loading:true};Promise.all([SB.from('fin_subscriptions').select('*').eq('user_id',u.id).eq('active',true).maybeSingle(),SB.from('fin_invoices').select('*').eq('user_id',u.id).order('due_date',{ascending:false}).limit(8),finSettings()]).then(([a,b,stt])=>{const e=a.error||b.error;UFIN[u.id]=e?{err:friendlyErr(e)}:{sub:a.data,inv:b.data||[],st:stt||{}};const t=topV();if(t&&t.view==='user'&&t.params.id===u.id)render()});F=UFIN[u.id]}
   let h=`<h3>Financeiro</h3><div class="card">`;
   if(F.loading)return h+'<div class="mu sm">Carregando…</div></div>';if(F.err)return h+`<div class="sm" style="color:var(--bad)">${esc(F.err)}</div></div>`;
   const s=F.sub;
   if(s)h+=`<div class="row"><span class="sp">Plano</span><b>${esc(s.plan_name)}</b></div><div class="row" style="margin-top:6px"><span class="sp">Valor</span><b>${brl(s.price)} <span class="mu sm">· ${perLbl(s.months).toLowerCase()}</span></b></div><div class="row" style="margin-top:6px"><span class="sp">Vencimento</span><b>todo dia ${s.due_day}</b></div><div class="row" style="margin-top:6px"><span class="sp">Desde</span><span>${esc(isoToBR(s.start_date))}</span></div>`;
-  else h+=`<div class="mu sm">Sem assinatura. Defina o plano para as faturas serem geradas automaticamente.</div>`;
+  else{h+=`<div class="mu sm">Sem assinatura. Defina o plano para as faturas serem geradas automaticamente.</div>`;
+    const td=F.st&&F.st.trial_days;if(td){const end=(u.info&&u.info.trial_until)||addDays(String(u.created_at).slice(0,10),td-1),left=dDiff(todayISO(),end)+1,off=u.info&&u.info.trial_blocked;
+      h+=`<div class="row" style="margin-top:10px;gap:8px"><span class="sp sm">${off||left<1?`🔒 <b>Teste grátis encerrado</b> em ${esc(isoToBR(end))}${off&&!u.active?' · acesso bloqueado':''}`:`🎁 <b>Teste grátis</b> até ${esc(isoToBR(end))} · ${left} dia${left===1?'':'s'}`}</span><button class="btn smb" data-act="finTrialMore" data-id="${u.id}">+7 dias</button></div><div class="mu xs" style="margin-top:4px">Ao definir o plano, o acesso continua (ou volta) automaticamente.</div>`}}
   h+=`<div class="grid2" style="margin-top:10px"><button class="btn block" data-act="finSub" data-id="${u.id}">${s?'Alterar plano':'Definir plano'}</button><button class="btn block" data-act="finExtra" data-id="${u.id}">+ Cobrança avulsa</button></div>`;
   if(s)h+=`<button class="btn block" style="margin-top:8px;color:var(--bad)" data-act="finSubEnd" data-id="${u.id}">Encerrar assinatura</button>`;
   if(F.inv.length)h+=`<div style="margin-top:12px">${F.inv.map(i=>`<div class="li tap" data-act="finInv" data-id="${i.id}" data-u="${u.id}" style="padding-left:0;padding-right:0"><div class="t"><b class="sm">${esc(i.description)}</b><span class="mu xs">vence ${esc(isoToBR(i.due_date))}${i.status==='paga'?' · paga em '+esc(isoToBR(i.paid_at)):''}</span></div><div style="text-align:right"><b class="sm">${brl(i.amount)}</b><div class="xs">${invPill(i)}</div></div></div>`).join('')}</div>`;
@@ -1675,11 +1685,17 @@ function billAlert(b){if(!b)return null;const T=b.today||todayISO();const open=(
   if(d>0&&b.alert_days_before&&d<=b.alert_days_before)return{lvl:'warn',i,txt:`Sua fatura de <b>${brl(i.amount)}</b> vence em <b>${d} dia${d===1?'':'s'}</b> (${esc(isoToBR(i.due_date))}).`};
   return null}
 function pixBox(b){return b&&b.pix_key?`<div class="row" style="margin-top:10px;gap:8px"><div class="sp sm" style="min-width:0;word-break:break-all">Pix: <b>${esc(b.pix_key)}</b>${b.pix_name?`<div class="mu xs">${esc(b.pix_name)}</div>`:''}</div><button class="btn smb" data-act="copyPix">Copiar</button></div>`:''}
+/* pedido de plano novo (aluno → Tel): fica no estado do aluno; o Tel vê em Acompanhamento e marca como atendido no próprio estado */
+function coachWa(){const b=MYBILL&&MYBILL.data;return b&&b.coach_whatsapp||''}
+function reqWa(msg){const n=coachWa();return n?waURL(n,`Olá, Tel! Aqui é ${firstName(ME.name||'')}. Gostaria de um plano de treino novo.${msg?'\n'+msg:''}`):''}
 function finBanner(){if(!ME)return'';
   if(ME.role==='master'){const F=FINOPEN;if(!F||!F.list)return'';const T=todayISO(),ah=(F.st&&F.st.alert_days_before)||0;
     const set=new Set(F.list.filter(i=>dDiff(T,i.due_date)<=ah).map(i=>i.user_id)),n=set.size;if(!n)return'';
     return`<div class="card tap" data-act="go" data-v="fin" style="border-left:4px solid var(--warn)"><div class="row"><span class="sp sm">🔔 <b>Fique atento aos vencimentos!</b> ${n===1?'1 aluno está próximo a vencer ou já está com a mensalidade vencida!':n+' alunos estão próximos a vencer ou já estão com a mensalidade vencida!'}</span><span class="mu">›</span></div></div>`}
-  const b=MYBILL&&MYBILL.uid===ME.id&&MYBILL.data,a=billAlert(b);if(!a)return'';
+  const b=MYBILL&&MYBILL.uid===ME.id&&MYBILL.data,a=billAlert(b);
+  if(!a&&b&&b.trial_end&&!b.has_sub){const left=dDiff(b.today||todayISO(),b.trial_end)+1,lv=left<=3?'warn':'ac';
+    return`<div class="card" style="border-left:4px solid var(--${lv})"><div class="sm">🎁 <b>Período gratuito:</b> ${left>1?`faltam <b>${left} dias</b>`:'<b>último dia</b>'} (até ${esc(isoToBR(b.trial_end))}). Para continuar usando o app depois disso, combine um plano com o Tel.</div>${b.coach_whatsapp?`<button class="btn block" style="margin-top:8px" data-act="openWa" data-u="${esc(waURL(b.coach_whatsapp,`Olá, Tel! Aqui é ${firstName(ME.name||'')}. Estou no período gratuito do app e quero saber dos planos.`))}">💬 Falar com o Tel</button>`:''}</div>`}
+  if(!a)return'';
   return`<div class="card" style="border-left:4px solid var(--${a.lvl})"><div class="sm">${a.lvl==='bad'?'⚠️':'🔔'} ${a.txt}</div>${pixBox(b)}<button class="btn block" style="margin-top:8px" data-act="go" data-v="myFin">Ver minhas faturas</button></div>`}
 function myFinCard(){const b=MYBILL&&MYBILL.uid===ME.id&&MYBILL.data;if(!b||!Array.isArray(b.invoices)||(!b.invoices.length&&!b.pix_key))return'';const o=b.invoices.filter(i=>i.status==='aberta');
   return`<h3>Financeiro</h3><div class="card" style="padding:4px 14px"><div class="li tap" data-act="go" data-v="myFin"><span class="kd">💳</span><div class="t"><b>Minhas faturas</b><span class="mu sm">${o.length?`${o.length} em aberto · ${brl(o.reduce((s,i)=>s+Number(i.amount),0))}`:'Tudo em dia ✓'}</span></div><span class="mu">›</span></div></div>`}
@@ -1690,6 +1706,7 @@ VIEWS.myFin=function(){let h=hdr('Minhas faturas','',true);const b=MYBILL&&MYBIL
   if(b.pix_key)h+=`<h3>Pagamento</h3><div class="card">${pixBox(b).replace('margin-top:10px;','')}<p class="mu xs" style="margin:8px 0 0">Depois de pagar, envie o comprovante ao seu treinador. A baixa é feita por ele.</p></div>`;
   return h+`<h3>Histórico</h3>`+myInvList(b)};
 function viewBlocked(){const b=MYBILL&&MYBILL.uid===ME.id&&MYBILL.data;if(!b&&navigator.onLine&&SB&&!(MYBILL&&MYBILL.loading))loadMyBill();
+  if(b&&b.trial_blocked&&!b.blocked)return`<div class="login" style="text-align:left"><h1>Período gratuito encerrado</h1><p class="mu">Seus ${b.trial_end?'dias gratuitos terminaram em '+esc(isoToBR(b.trial_end)):'dias gratuitos terminaram'}. Para continuar treinando com o app, combine um plano com o Tel. O acesso volta sozinho assim que ele registrar o seu plano.</p>${b.coach_whatsapp?`<button class="btn pri block" data-act="openWa" data-u="${esc(waURL(b.coach_whatsapp,`Olá, Tel! Aqui é ${firstName(ME.name||'')}. Meu período gratuito no app terminou e quero continuar. Quais são os planos?`))}">💬 Falar com o Tel</button><div style="height:8px"></div>`:''}<button class="btn block" data-act="recheck">Já combinei — verificar</button><div style="height:8px"></div><button class="btn block" data-act="logout">Sair</button></div>`;
   if(b&&b.blocked)return`<div class="login" style="text-align:left"><h1>Acesso bloqueado</h1><p class="mu">Seu acesso foi bloqueado por fatura em atraso. Ele volta assim que o pagamento for confirmado.</p>${pixBox(b)}<div style="height:10px"></div>${myInvList({invoices:b.invoices.filter(i=>i.status==='aberta')})}<div style="height:10px"></div><button class="btn pri block" data-act="recheck">Já paguei — verificar</button><div style="height:8px"></div><button class="btn block" data-act="logout">Sair</button></div>`;
   return null}
 
@@ -1698,8 +1715,10 @@ Object.assign(ACT,{
   copyPix:()=>{const b=(MYBILL&&MYBILL.data)||{};copyTxt(b.pix_key,'Chave Pix copiada')},
   recheck:()=>{toast('Verificando…');MYBILL=null;loadMyBill();sync(true)},
   finMonth:d=>{const[y,m]=FINMONTH.ym.split('-').map(Number),t=new Date(y,m-1+(+d.d),1);FINMONTH={ym:t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0'),list:null};render()},
+  finTrialMore:busyA(async d=>{const u=USERS.list.find(x=>x.id===d.id);const F=UFIN[u.id]||{},td=(F.st&&F.st.trial_days)||15;const end=(u.info&&u.info.trial_until)||addDays(String(u.created_at).slice(0,10),td-1);const base=end<todayISO()?todayISO():end,nu=addDays(base,7);
+    const{error}=await SB.from('client_info').upsert({user_id:u.id,trial_until:nu},{onConflict:'user_id'});if(error)throw new Error(friendlyErr(error));u.info=Object.assign({},u.info||{},{trial_until:nu});await finRefreshRpc();delete UFIN[u.id];await loadUsers();render();toast('Teste grátis até '+isoToBR(nu))}),
   finCfgSave:busy(async()=>{const n=(id,lo,hi)=>{const v=$('#'+id).value.trim();if(!v)return null;const x=+v;if(!Number.isInteger(x)||x<lo||x>hi)throw new Error(`Use um número de ${lo} a ${hi} (ou deixe vazio)`);return x};
-    const o={pix_key:$('#fcPix').value.trim()||null,pix_name:$('#fcName').value.trim()||null,alert_days_before:n('fcBefore',1,30),alert_on_due:$('#fcOnDue').checked,block_after_days:n('fcBlock',1,90),updated_by:ME.id,updated_at:new Date().toISOString()};
+    const o={pix_key:$('#fcPix').value.trim()||null,pix_name:$('#fcName').value.trim()||null,alert_days_before:n('fcBefore',1,30),alert_on_due:$('#fcOnDue').checked,block_after_days:n('fcBlock',1,90),trial_days:n('fcTrial',1,90),coach_whatsapp:(w=>{if(!w)return null;const x=w.length<=11?'55'+w:w;if(x.length<12||x.length>13)throw new Error('WhatsApp: use DDD + número (ex.: 81 99999-0000)');return x})($('#fcWa').value.replace(/\D/g,'')),updated_by:ME.id,updated_at:new Date().toISOString()};
     const{error}=await SB.from('fin_settings').update(o).eq('id',1);if(error)throw new Error(friendlyErr(error));await finAfter(null,'Configurações salvas')}),
   finPlanEdit:d=>{const p=d.id&&FIN.plans.find(x=>x.id===d.id)||{months:1,active:true};
     modal(d.id?'Editar plano':'Novo plano',`<label class="f"><span>Nome</span><input id="fpName" maxlength="60" value="${esc(p.name||'')}" placeholder="ex: Consultoria mensal"></label><div class="grid2"><label class="f"><span>Valor (R$)</span><input id="fpPrice" inputmode="decimal" value="${esc(moneyIn(p.price))}" placeholder="150,00"></label><label class="f"><span>Período</span>${sel('',PERIODS,p.months,'id="fpMonths"')}</label></div>${d.id?`<div class="sw"><span>Plano ativo</span><input type="checkbox" id="fpActive" ${p.active?'checked':''}></div>`:''}`,
@@ -1780,8 +1799,9 @@ function acRow(u,doc,logs,avDate,finLate){const T=todayISO(),prog=doc&&doc.progr
     if(r.avAge==null?dDiff(start,T)>=AC_REEVAL:r.avAge>=AC_REEVAL)al.push(['eval',r.avAge==null?'Sem avaliação registrada':`Última avaliação há ${Math.floor(r.avAge/7)} semanas`]);
     if(pains.length)al.push(['pain',`Relatou dor: ${pains.map(L=>L.fb.painNote||'sem detalhe').join('; ')}`]);
     if(finLate)al.push(['fin','Mensalidade vencida'])}
+  if(st.req&&st.req.id&&!(S.reqDone&&S.reqDone[st.req.id]))al.unshift(['req',`Pediu plano novo em ${new Date(st.req.at).toLocaleDateString('pt-BR')}${st.req.msg?': '+st.req.msg:''}`,st.req.id]);
   r.alerts=al;return r}
-const AC_IC={idle:'💤',plan:'📋',eval:'📏',pain:'🩹',fin:'💰'};
+const AC_IC={idle:'💤',plan:'📋',eval:'📏',pain:'🩹',fin:'💰',req:'📝'};
 function acCard(r){return`<div class="li tap" data-act="go" data-v="user" data-id="${r.u.id}"><div class="t"><b>${esc(r.u.name)}</b>${r.alerts.map(([k,t])=>`<span class="sm" style="display:block">${AC_IC[k]} ${esc(t)}</span>`).join('')}</div>${r.u.info&&r.u.info.phone?`<button class="btn smb" data-act="openWa" data-u="${esc(waURL(r.u.info.phone,`Olá, ${firstName(r.u.name)}! Tudo bem? Passando para saber como estão os treinos 💪`))}" aria-label="WhatsApp">💬</button>`:''}<span class="mu">›</span></div>`}
 VIEWS.acomp=function(){let h=hdr('Acompanhamento','',true,'<button class="btn smb" data-act="acReload">↻</button>');
   if(!ACOMP||(!ACOMP.loading&&!ACOMP.rows&&!ACOMP.err)){loadAcomp();return h+'<div class="empty">Carregando…</div>'}if(ACOMP.loading)return h+'<div class="empty">Carregando…</div>';if(ACOMP.err)return h+`<div class="card" style="color:var(--bad)">${esc(ACOMP.err)}</div>`;
@@ -1797,7 +1817,7 @@ function freqBadge(f){if(f==null)return'<span class="mu sm">—</span>';const c=
 function acUserCard(u){if(!ACOMP||(!ACOMP.rows&&!ACOMP.loading&&!ACOMP.err)||Date.now()-ACOMP.at>6e5&&!ACOMP.loading){loadAcomp();return''}
   const r=ACOMP.rows&&ACOMP.rows.find(x=>x.u.id===u.id);if(!r)return'';
   const mx=Math.max(r.perWeek||0,...r.wk,1),lbs=['esta sem.','1 sem.','2 sem.','3 sem.'];
-  let h=`<h3>Acompanhamento</h3><div class="card">${r.alerts.length?r.alerts.map(([k,t])=>`<div class="sm" style="margin-bottom:4px">${AC_IC[k]} ${esc(t)}</div>`).join('')+'<div style="height:6px"></div>':''}
+  let h=`<h3>Acompanhamento</h3><div class="card">${r.alerts.length?r.alerts.map(([k,t,id])=>`<div class="sm" style="margin-bottom:4px">${AC_IC[k]} ${esc(t)}</div>${k==='req'?`<div class="row" style="gap:8px;margin:6px 0 8px"><button class="btn smb sp" data-act="manageProg" data-id="${u.id}">Ver / montar planos</button><button class="btn smb sp" data-act="reqDone" data-id="${id}">Pedido atendido</button></div>`:''}`).join('')+'<div style="height:6px"></div>':''}
     <div class="row" style="align-items:flex-end;gap:10px;height:90px">${r.wk.slice().reverse().map((n,k)=>`<div class="sp" style="text-align:center"><div class="xs mu">${n}${r.perWeek?'/'+r.perWeek:''}</div><div style="height:${Math.max(4,Math.round(n/mx*56))}px;background:${r.perWeek&&n>=r.perWeek?'var(--ok)':'var(--ac)'};border-radius:6px;margin:4px 6px 0"></div><div class="xs mu" style="margin-top:4px">${lbs[3-k]}</div></div>`).join('')}</div>
     <div class="row" style="margin-top:10px"><span class="sp sm">Frequência (4 sem.)</span>${freqBadge(r.freq)}</div>
     ${r.p?`<div class="row" style="margin-top:6px"><span class="sp sm">Plano</span><span class="sm">${esc(r.p.name)} · semana ${Math.min(r.w,r.N)} de ${r.N}</span></div>`:''}
@@ -1807,7 +1827,7 @@ function acUserCard(u){if(!ACOMP||(!ACOMP.rows&&!ACOMP.loading&&!ACOMP.err)||Dat
 /* banner do master na tela Hoje */
 function acBanner(){if(!ME||ME.role!=='master')return'';if(!ACOMP||(!ACOMP.loading&&Date.now()-ACOMP.at>6e5)){if(navigator.onLine&&SB)loadAcomp();return''}
   if(!ACOMP.rows)return'';const n=ACOMP.rows.filter(r=>r.alerts.some(a=>a[0]!=='fin')).length;if(!n)return'';
-  return`<div class="card tap" data-act="go" data-v="acomp" style="border-left:4px solid var(--ac)"><div class="row"><span class="sp sm">👀 <b>Acompanhamento:</b> ${n===1?'1 aluno precisa':n+' alunos precisam'} de atenção (treinos, plano, avaliação ou dor).</span><span class="mu">›</span></div></div>`}
+  return`<div class="card tap" data-act="go" data-v="acomp" style="border-left:4px solid var(--ac)"><div class="row"><span class="sp sm">👀 <b>Acompanhamento:</b> ${n===1?'1 aluno precisa':n+' alunos precisam'} de atenção (treinos, plano, pedidos, avaliação ou dor).</span><span class="mu">›</span></div></div>`}
 /* manual do treinador: PDF privado no Supabase Storage (bucket master-docs, só master lê e grava) */
 const MANUAL_BUCKET='master-docs',MANUAL_PATH='manual-treinador.pdf';let MANUAL=null;
 function manualPrefetch(force){if(!ME||ME.role!=='master'||!SB||!SB.storage||!navigator.onLine)return;if(!force&&MANUAL&&(MANUAL.loading||Date.now()-MANUAL.at<45*60e3))return;
@@ -1883,6 +1903,9 @@ Object.assign(ACT,{
     confirmBox(`Encerrar semana ${pr.week}`,`<p>Ir para a <b>semana ${pr.week+1}</b>${pr.week<N?' ('+esc(phaseAt(p,pr.week+1).name)+')':''} sem fazer: ${miss.join(', ')||'—'}?</p>`,'Avançar semana',()=>{pr.week++;if(pr.week>N&&p.repeat){pr.week=1;pr.round=(pr.round||1)+1}save();render();toast(pr.week>N?'Plano concluído':'Semana '+pr.week+' · '+phaseAt(p,pr.week).name)})},
   planMode:d=>{const p=planOf(d);if(!p)return;if(d.m==='semana'){p.mode='semana';p.grade=gradeOf(p)}else{delete p.mode}psave();render();toast(d.m==='semana'?'Agora por dia da semana':'Agora por ciclo (sequência)')},
   grdCopyGo:d=>{const p=planOf(d);const g=gradeOf(p),s0=sessIn(p,g[+d.from]);if(!s0)return;const c=clone(s0);c.id=uid36('s');c.name=s0.name+' ('+DSEM[+d.to]+')';c.exercises.forEach(e=>e.id=uid36('e'));p.sessions.push(c);g[+d.to]=c.id;p.grade=g;$('#modal').hidden=true;psave();render();toast('Copiado para '+DSEML[+d.to])},
+  reqPlan:()=>{if(!MYBILL)loadMyBill();modal('Pedir plano novo ao Tel',`<p class="sm" style="margin-top:0">O pedido aparece para o Tel no app${coachWa()?' e abre uma conversa com ele no WhatsApp':''}.</p><label class="f"><span>O que você gostaria de mudar? (opcional)</span><textarea id="reqMsg" rows="3" maxlength="300" placeholder="Ex.: treinar 4 vezes por semana, focar em pernas, treinar em casa"></textarea></label>`,[{label:'Cancelar'},{label:'Enviar pedido',cls:'pri',fn:()=>{const msg=($('#reqMsg')&&$('#reqMsg').value||'').trim().slice(0,300);S.req={id:uid36('r'),at:Date.now(),msg};save();render();toast('Pedido enviado ao Tel');const u=reqWa(msg);if(u)window.open(u,'_blank','noopener')}}])},
+  reqCancel:()=>confirmBox('Cancelar pedido','Cancelar o pedido de plano novo?','Cancelar pedido',()=>{S.req=null;save();render()},true),
+  reqDone:d=>{S.reqDone=Object.assign({},S.reqDone||{});S.reqDone[d.id]=Date.now();const ks=Object.keys(S.reqDone);if(ks.length>200)ks.sort((a,b)=>S.reqDone[a]-S.reqDone[b]).slice(0,ks.length-200).forEach(k=>delete S.reqDone[k]);save();if(ACOMP&&ACOMP.rows)ACOMP.rows.forEach(r=>{r.alerts=r.alerts.filter(a=>!(a[0]==='req'&&a[2]===d.id))});render();toast('Pedido marcado como atendido')},
   semSkip:d=>{const p=myActive();if(!p)return;const W=semWeek(p),o=W.days[+d.day];if(!o||!o.s)return;confirmBox('Pular treino',`Pular <b>${esc(o.s.name)}</b> de ${DSEML[o.d]}? Ele sai dos pendentes e, no fim da semana, fica registrado como perdido.`,'Pular',()=>{const pr=progOf(p);pr.skip=(pr.skip||[]).filter(k=>k>=addDays(W.mon,-28)).concat(W.mon+':'+o.d);save();render();toast('Treino pulado')})},
   shiftWeek:d=>{const p=myActive();if(!p)return;const pr=progOf(p);if(isSem(p)){semSync(p);pr.start=addDays(pr.start,-7*(+d.d));semSync(p);save();render();return}pr.week=Math.min(weeksOf(p)+1,Math.max(1,pr.week+(+d.d)));save();render()},
   delLog:d=>confirmBox('Excluir registro','Este treino será removido do histórico.','Excluir',()=>{const L0=S.logs.find(L=>L.id===d.id);S.logs=S.logs.filter(L=>L.id!==d.id);if(L0){S._sync.dirtyLogs=S._sync.dirtyLogs.filter(x=>x!==d.id);S._sync.delLogs.push({id:L0.id,date:L0.date})}save();V.stack.pop();render()},true),
