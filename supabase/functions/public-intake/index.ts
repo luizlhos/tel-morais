@@ -4,14 +4,15 @@
 //   submit : valida, cria a conta (senha aleatória inutilizável), grava a avaliação e
 //            dispara o e-mail com um CÓDIGO de uso único para o cliente CRIAR A PRÓPRIA SENHA no app.
 //   resend : reenvia o código (também serve como "esqueci minha senha").
+//   check  : diz se o e-mail já está cadastrado (1ª etapa do formulário; limite por IP e por e-mail).
 //
 // Segurança:
 //   • verify_jwt = false (é público por definição) — toda defesa está aqui:
 //     origem permitida (CORS), honeypot, Turnstile (opcional), limite de tentativas por IP e por e-mail,
 //     validação por lista de campos permitidos, maioridade, tamanho máximo do corpo.
-//   • Resposta SEMPRE genérica quanto à existência do e-mail (sem enumeração de contas).
-//   • Se o e-mail já tem conta, NÃO se grava nada nela: só se envia um aviso (evita alguém
-//     injetar dados na conta de outra pessoa).
+//   • check e submit informam se o e-mail já está cadastrado (decisão do dono do app, 28/11/2026);
+//     resend continua genérico. Limites de tentativas reduzem a consulta em massa.
+//   • Se o e-mail já tem conta, NÃO se grava nada nela (evita alguém injetar dados na conta de outra pessoa).
 //   • Nenhum dado de saúde vai por e-mail; o código é de uso único e expira (validade no Auth).
 //   • Logs sem dados pessoais.
 //
@@ -26,7 +27,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { validateEmail, validateIntake } from "./validate.ts";
 
-const APP_URL = Deno.env.get("APP_URL") ?? "https://luizlhos.github.io/treino/";
+const APP_URL = Deno.env.get("APP_URL") ?? "https://luizlhos.github.io/tel-morais/";
 const ALLOWED = (Deno.env.get("ALLOWED_ORIGINS") ?? "https://luizlhos.github.io")
   .split(",").map((s) => s.trim()).filter(Boolean);
 const MAIL_MODE = Deno.env.get("MAIL_MODE") ?? "";
