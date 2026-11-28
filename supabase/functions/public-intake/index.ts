@@ -4,14 +4,15 @@
 //   submit : valida, cria a conta (senha aleatória inutilizável), grava a avaliação e
 //            dispara o e-mail com um CÓDIGO de uso único para o cliente CRIAR A PRÓPRIA SENHA no app.
 //   resend : reenvia o código (também serve como "esqueci minha senha").
+//   check  : diz se o e-mail já está cadastrado (1ª etapa do formulário; limite por IP e por e-mail).
 //
 // Segurança:
 //   • verify_jwt = false (é público por definição) — toda defesa está aqui:
 //     origem permitida (CORS), honeypot, Turnstile (opcional), limite de tentativas por IP e por e-mail,
 //     validação por lista de campos permitidos, maioridade, tamanho máximo do corpo.
-//   • Resposta SEMPRE genérica quanto à existência do e-mail (sem enumeração de contas).
-//   • Se o e-mail já tem conta, NÃO se grava nada nela: só se envia um aviso (evita alguém
-//     injetar dados na conta de outra pessoa).
+//   • check e submit informam se o e-mail já está cadastrado (decisão do dono do app, 28/11/2026);
+//     resend continua genérico. Limites de tentativas reduzem a consulta em massa.
+//   • Se o e-mail já tem conta, NÃO se grava nada nela (evita alguém injetar dados na conta de outra pessoa).
 //   • Nenhum dado de saúde vai por e-mail; o código é de uso único e expira (validade no Auth).
 //   • Logs sem dados pessoais.
 //
@@ -26,7 +27,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { validateEmail, validateIntake } from "./validate.ts";
 
-const APP_URL = Deno.env.get("APP_URL") ?? "https://luizlhos.github.io/treino/";
+const APP_URL = Deno.env.get("APP_URL") ?? "https://luizlhos.github.io/tel-morais/";
 const ALLOWED = (Deno.env.get("ALLOWED_ORIGINS") ?? "https://luizlhos.github.io")
   .split(",").map((s) => s.trim()).filter(Boolean);
 const MAIL_MODE = Deno.env.get("MAIL_MODE") ?? "";
@@ -37,6 +38,7 @@ const MAX_BODY = 24_000;
 const LIMITS = {
   submit: { ip: [6, 3600], email: [3, 86400] },
   resend: { ip: [10, 3600], email: [3, 3600] },
+  check: { ip: [30, 3600], email: [10, 3600] },
 } as const;
 
 const admin = createClient(
@@ -69,7 +71,7 @@ function clientIp(req: Request): string {
   return (req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "?";
 }
 
-async function overLimit(kind: "submit" | "resend", ipH: string, emailH: string | null): Promise<boolean> {
+async function overLimit(kind: "submit" | "resend" | "check", ipH: string, emailH: string | null): Promise<boolean> {
   const checks: Array<[string, string, number, number]> = [["ip_hash", ipH, ...LIMITS[kind].ip]];
   if (emailH) checks.push(["email_hash", emailH, ...LIMITS[kind].email]);
   for (const [col, val, max, secs] of checks) {
@@ -126,7 +128,7 @@ Deno.serve(async (req) => {
   try { body = JSON.parse(raw); } catch { return json({ error: "bad_json" }, 400, origin); }
 
   const action = body?.action;
-  if (action !== "submit" && action !== "resend") return json({ error: "action" }, 400, origin);
+  if (action !== "submit" && action !== "resend" && action !== "check") return json({ error: "action" }, 400, origin);
 
   // honeypot: robôs preenchem; resposta "ok" para não dar pista
   if (typeof body.hp === "string" && body.hp.trim() !== "") return json({ ok: true }, 200, origin);
@@ -136,12 +138,20 @@ Deno.serve(async (req) => {
   const emailNorm = validateEmail(body?.email);
   const emailH = emailNorm ? await sha("em:" + emailNorm) : null;
 
-  if (!(await verifyCaptcha(body?.cf_token, ip))) return json({ error: "captcha" }, 400, origin);
+  // check: confere no 1º passo do formulário se o e-mail já está cadastrado (o captcha só existe no fim do formulário)
+  if (action !== "check" && !(await verifyCaptcha(body?.cf_token, ip))) return json({ error: "captcha" }, 400, origin);
   if (await overLimit(action, ipH, emailH)) return json({ error: "rate_limited" }, 429, origin);
   await admin.from("intake_attempts").insert({ kind: action, ip_hash: ipH, email_hash: emailH });
   // limpeza oportunista (mantém a tabela pequena)
   if (Math.random() < 0.05) {
     await admin.from("intake_attempts").delete().lt("created_at", new Date(Date.now() - 3 * 86400_000).toISOString());
+  }
+
+  // ---------------------------------------------------------------- check
+  if (action === "check") {
+    if (!emailNorm) return json({ error: "validation", fields: { email: "E-mail inválido." } }, 400, origin);
+    const { data: p } = await admin.from("profiles").select("id").eq("email", emailNorm).maybeSingle();
+    return json({ ok: true, exists: !!p }, 200, origin);
   }
 
   // ---------------------------------------------------------------- resend
@@ -159,8 +169,8 @@ Deno.serve(async (req) => {
 
   const { data: existing } = await admin.from("profiles").select("id,active").eq("email", email).maybeSingle();
   if (existing) {
-    if (existing.active) await sendAccessMail(email, name, "existing");
-    return json({ ok: true }, 200, origin);
+    // e-mail já cadastrado (aluno ativo ou desativado): não grava nada e avisa o formulário
+    return json({ error: "exists", fields: { email: "Este e-mail já está cadastrado." } }, 409, origin);
   }
 
   // senha aleatória e descartada: a conta só passa a ser usável quando o dono do e-mail usa o código

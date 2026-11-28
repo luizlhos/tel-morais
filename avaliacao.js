@@ -143,6 +143,7 @@
     if (typeof document === 'undefined' || document.getElementById('avcss')) return;
     const s = document.createElement('style'); s.id = 'avcss';
     s.textContent = `
+.av-exists{border:1px solid var(--warn);background:color-mix(in srgb,var(--warn) 10%,transparent);border-radius:var(--r,14px);padding:12px 14px;margin:10px 0}.av-exists .btn{margin:0}
 .av-eyb{font-size:12px;font-weight:800;letter-spacing:.06em;color:var(--ac2,var(--ac));text-transform:uppercase;margin-bottom:8px}
 .av-sum{border-top:1px solid var(--s3)}.av-sum:first-child{border-top:none}.av-sum summary{display:flex;align-items:center;gap:10px;padding:12px 0;cursor:pointer;list-style:none}.av-sum summary::-webkit-details-marker{display:none}.av-sum summary>span{flex:1;min-width:0;display:flex;flex-direction:column}.av-sum summary small{color:var(--mu);font-size:13px}.av-sum summary i{color:var(--mu);font-style:normal;transition:transform .15s}.av-sum[open] summary i{transform:rotate(90deg)}
 .av-prog{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:4px 0 6px}.av-prog i{height:5px;border-radius:3px;background:var(--s3)}.av-prog i.on{background:var(--ac)}
@@ -212,6 +213,7 @@ html[data-theme=light] .av-q{box-shadow:0 1px 2px rgba(16,24,40,.06)}
     if (mode === 'public') {
       h += `<div class="av-q" id="avc_name"><div class="t"><span class="av-n">${++n}</span><span>Nome completo</span></div><input id="av_name" autocomplete="name" maxlength="80" value="${esc(D.name)}"><div class="av-msg" id="avm_name" hidden></div></div>`;
       h += `<div class="av-q" id="avc_email"><div class="t"><span class="av-n">${++n}</span><span>E-mail</span></div><input id="av_email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" maxlength="254" value="${esc(D.email)}"><div class="av-help">Enviaremos para este e-mail um código para você criar sua senha e ver sua análise.</div><div class="av-msg" id="avm_email" hidden></div></div>`;
+      h += `<div class="av-exists" id="avExists" ${AV.exists ? '' : 'hidden'}><b>Este e-mail já está cadastrado.</b><div class="sm">Se você já é aluno, entre com sua senha. Esqueceu a senha? Use "Criar ou redefinir minha senha". Se o seu acesso estiver desativado, fale com o seu treinador.</div><div class="row" style="gap:8px;margin-top:10px"><button class="btn smb sp" data-act="avClose">Entrar</button><button class="btn smb sp" data-act="avOpenResend">Criar ou redefinir senha</button></div></div>`;
     }
     if (mode !== 'public') {
       h += `<div class="av-q" id="avc_name"><div class="t"><span class="av-n">${++n}</span><span>${mode === 'master' ? 'Nome do aluno' : 'Seu nome'}</span></div><input id="av_name" autocomplete="name" maxlength="80" value="${esc(D.name)}"><div class="av-help">É o nome de exibição no app${mode === 'master' ? ' para este aluno' : ''}. Alterar aqui também altera no Perfil.</div><div class="av-msg" id="avm_name" hidden></div></div>`;
@@ -301,6 +303,12 @@ html[data-theme=light] .av-q{box-shadow:0 1px 2px rgba(16,24,40,.06)}
     return { out, err };
   }
 
+  // 1º passo do formulário público: o e-mail já é de um aluno? (falha de rede: segue; o servidor confere de novo no envio)
+  async function emailExists(email) {
+    const em = String(email || '').trim().toLowerCase(); if (!em || !navigator.onLine || !sbInit()) return false;
+    if (AV.checked && AV.checked.email === em) return AV.checked.exists;
+    try { const { data, error } = await SB.functions.invoke(CFG.FN, { body: { action: 'check', email: em } }); if (error || !data) return false; AV.checked = { email: em, exists: !!data.exists }; return !!data.exists; } catch (e) { return false; }
+  }
   function stepOf(k) { if (k === 'name' || k === 'email') return 0; if (k === 'consent' || k === 'form') return SECTIONS.length - 1; const i = SECTIONS.findIndex(s => s.qs.some(q => q.k === k)); return i < 0 ? (AV.step || 0) : i; }
   function stepErrors(err) { const st = AV.step || 0, e = {}; for (const k in err) if (stepOf(k) === st) e[k] = err[k]; return e; }
   function showErrors(err) {
@@ -338,6 +346,7 @@ html[data-theme=light] .av-q{box-shadow:0 1px 2px rgba(16,24,40,.06)}
         const { data, error } = await SB.functions.invoke(CFG.FN, { body: { action: 'submit', name: AV.draft.name.trim(), email: AV.draft.email.trim(), answers: out, consent: { accepted: true, version: CFG.CONSENT_VERSION }, hp, cf_token: AV.cf } });
         if (error) {
           const j = await fnError(error);
+          if (j.error === 'exists') { AV.exists = true; AV.checked = { email: AV.draft.email.trim().toLowerCase(), exists: true }; showErrors({ email: 'Este e-mail já está cadastrado.' }); toast('Este e-mail já está cadastrado'); return; }
           if (j.error === 'validation') { showErrors(j.fields || {}); toast('Revise os campos destacados'); }
           else msg.textContent = j.error === 'rate_limited' ? 'Muitas tentativas. Aguarde um pouco e tente de novo.'
             : j.error === 'captcha' ? 'Não foi possível confirmar que você não é um robô. Recarregue e tente de novo.'
@@ -362,7 +371,7 @@ html[data-theme=light] .av-q{box-shadow:0 1px 2px rgba(16,24,40,.06)}
     finally { if (btn.isConnected) { btn.disabled = false; btn.textContent = label; } }
   }
 
-  function clearDraft() { AV.draft = { name: '', email: '', a: {}, consent: false }; AV.step = 0; }
+  function clearDraft() { AV.draft = { name: '', email: '', a: {}, consent: false }; AV.step = 0; AV.exists = false; }
 
   /* ---------- telas PÚBLICAS (sem login) ---------- */
   function pubHeader(title, sub) {
@@ -734,9 +743,10 @@ html[data-theme=light] .av-q{box-shadow:0 1px 2px rgba(16,24,40,.06)}
     VIEWS.avuser = viewUser;
     VIEWS.avall = viewAll;
     Object.assign(ACT, {
-      avStep: d => {
+      avStep: async d => {
         readDraft(); const dir = +d.d, st = AV.step || 0;
         if (dir > 0) { const e = stepErrors(collect(AV.formMode || 'self').err); delete e.consent; if (Object.keys(e).length) { showErrors(e); toast('Revise os campos destacados'); return; } }
+        if (dir > 0 && st === 0 && AV.formMode === 'public') { const ex = await emailExists(AV.draft.email); AV.exists = ex; if (ex) { render(); setTimeout(() => showErrors({ email: 'Este e-mail já está cadastrado.' }), 0); return; } }
         AV.step = Math.max(0, Math.min(SECTIONS.length - 1, st + dir)); render(); scrollTo(0, 0);
       },
       avOpen: () => { AV.state = { mode: 'form' }; render(); scrollTo(0, 0); },
