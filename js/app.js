@@ -1,4 +1,4 @@
-const APP_VERSION='2.2.0';
+const APP_VERSION='2.3.0';
 const EXDIR='exercicios/';
 /* ---------- tema (preferência do aparelho) ---------- */
 const THEME_KEY='telm.theme';const MQ_DARK=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
@@ -822,12 +822,13 @@ function anamBasics(c,a){const B=c.body||{};return{sex:B.sex||a.sex||'',birth:B.
 function anamSave(c){if(c.self){commit();return}const m=ANM[c.uid];m.dirty=true;saveAnamRemote(c.uid)}
 async function saveAnamRemote(uid){const m=ANM[uid];if(!m||!m.dirty)return;if(!navigator.onLine){toast('Sem internet — anamnese de '+m.name+' NÃO foi salva');return}
   const{data,error}=await SB.from('user_docs').select('program').eq('user_id',uid).maybeSingle();if(error){toast(friendlyErr(error));return}
-  const lib=libFrom(data&&data.program)||emptyLib();lib.anam=m.lib.anam;
+  const lib=libFrom(data&&data.program)||emptyLib();lib.anam=m.lib.anam;if(m.lib.diet!==undefined)lib.diet=m.lib.diet;
   const{error:e2}=await SB.from('user_docs').update({program:lib,program_edited:Date.now()}).eq('user_id',uid);if(e2){toast('Erro ao salvar: '+friendlyErr(e2));return}
   m.dirty=false;m.lib=lib;toast('Salvo para '+m.name)}
-async function openAnamFor(u){if(!navigator.onLine){toast('Precisa de internet');return}
-  const{data,error}=await SB.from('user_docs').select('program,state').eq('user_id',u.id).maybeSingle();if(error){toast(friendlyErr(error));return}
-  ANM[u.id]={name:u.name,lib:libFrom(data&&data.program)||emptyLib(),body:(data&&data.state&&data.state.body)||{},dirty:false};ANM_TAB='res';go('anam',{uid:u.id})}
+async function loadAnam(u){if(!navigator.onLine){toast('Precisa de internet');return false}
+  const{data,error}=await SB.from('user_docs').select('program,state').eq('user_id',u.id).maybeSingle();if(error){toast(friendlyErr(error));return false}
+  ANM[u.id]={name:u.name,lib:libFrom(data&&data.program)||emptyLib(),body:(data&&data.state&&data.state.body)||{},dirty:false};return true}
+async function openAnamFor(u){if(await loadAnam(u)){ANM_TAB='res';go('anam',{uid:u.id})}}
 
 /* ---------- cálculos ---------- */
 function r1(v){return Math.round(v*10)/10}
@@ -925,6 +926,7 @@ function anamEvalForm(a,k,uid,c){const E=ANM_EDIT?a.evals.find(x=>x.id===ANM_EDI
 let ANM_EDIT=null;
 Object.assign(ACT,{
   anOpen:d=>{ANM_TAB='res';ANM_EDIT=null;go('anam',{})},
+  dietOpenUser:async d=>{const u=USERS.list.find(x=>x.id===d.id);if(!u)return;if(await loadAnam(u))go('dieta',{uid:u.id})},
   anOpenUser:d=>{const u=USERS.list.find(x=>x.id===d.id);ANM_EDIT=null;openAnamFor(u)},
   anTab:d=>{ANM_TAB=d.t;ANM_EDIT=null;render();scrollTo(0,0)},
   anEdit:d=>{ANM_TAB='aval';ANM_EDIT=d.id;render();scrollTo(0,0)},
@@ -1451,7 +1453,7 @@ VIEWS.user=function({id}){const u=USERS&&USERS.list&&USERS.list.find(x=>x.id===i
   if(u.role!=='master')h+=infoCard(u)+acUserCard(u)+finCard(u)+notesCard(u);
   const UBd=UB[id];if(UBd&&!UBd.loading)h+=`<h3>Perfil corporal</h3><div class="card">${(UBd.weights&&UBd.weights.length)||UBd.height?bodySummary(UBd)+(weightsSorted(UBd).length>1?'<div style="height:8px"></div>'+weightChart(UBd):''):'<div class="mu sm">Ainda não preenchido por ele.</div>'}</div>`;
   h+=`<div class="card"><div class="row"><span class="sp">Acesso ao app</span><b style="color:${u.active?'var(--ok)':'var(--bad)'}">${u.active?'Liberado':'Desativado'}</b></div><div class="row" style="margin-top:6px"><span class="sp">Planos</span><b>${u.has_program?'sim':'nenhum ainda'}</b></div><div class="row" style="margin-top:6px"><span class="sp">Criado em</span><span>${new Date(u.created_at).toLocaleDateString('pt-BR')}</span></div></div>`;
-  if(!me)h+=`<div class="ubig">${[['manageProg','Ver / montar planos',''],['avOpenUser','Questionário',''],['anOpenUser','Avaliação física',''],['go','Histórico de treinos',MASTER_HISTORY?'data-v="uhist"':'disabled']].concat(myActive()?[['copyProg','Enviar cópia do meu plano','']]:[]).map(([a,l,x])=>`<button class="btn" data-act="${a}" data-id="${u.id}" ${x}>${l}</button>`).join('')}</div>`;
+  if(!me)h+=`<div class="ubig">${[['manageProg','Ver / montar planos',''],['avOpenUser','Questionário',''],['anOpenUser','Avaliação física',''],['dietOpenUser','Plano alimentar',''],['go','Histórico de treinos',MASTER_HISTORY?'data-v="uhist"':'disabled']].concat(myActive()?[['copyProg','Enviar cópia do meu plano','']]:[]).map(([a,l,x])=>`<button class="btn" data-act="${a}" data-id="${u.id}" ${x}>${l}</button>`).join('')}</div>`;
   h+=`<div class="row wrap" style="margin-top:8px"><button class="btn smb sp" data-act="renameUser" data-id="${u.id}">Alterar nome</button>${me?'':`<button class="btn smb sp" data-act="pwUser" data-id="${u.id}">Redefinir senha</button><button class="btn smb sp" data-act="toggleUser" data-id="${u.id}" style="color:${u.active?'var(--bad)':'var(--ok)'}">${u.active?'Desativar':'Reativar'}</button>`}</div>`;
   return h};
 const UH={},UB={};
@@ -1854,7 +1856,7 @@ Object.assign(ACT,{
   avTab:d=>{AVT=d.t;render()},
   back:d=>{const t=topV();if(t&&t.view==='montar'&&WZ&&WZ.step>1){WZ.step--;WZ.preview=null;render();return}ACT._back(d)},
   _back:()=>{const t=V.stack.pop();if(t&&t.params&&t.params.uid&&!V.stack.some(x=>x.params&&x.params.uid)&&MANAGE&&MANAGE.dirty)saveManaged();render()},
-  go:d=>{if(d.v==='picker'){PK.q='';PK.cat=d.mode==='insert'?'Crossfit':'';PK.grp=''}go(d.v,{id:d.id,pid:d.pid,sid:d.sid,eid:d.eid,mode:d.mode,uid:d.uid||''})},
+  go:d=>{if(d.v==='picker'){PK.q='';PK.cat=d.mode==='insert'?'Crossfit':'';PK.grp=''}go(d.v,{id:d.id,pid:d.pid,sid:d.sid,eid:d.eid,mode:d.mode,uid:d.uid||'',k:d.k})},
   openLog:d=>go('log',{id:d.id}),
   startShort:d=>{SEMDAY=d.day!=null&&d.day!==''?+d.day:null;openShort(d.id)},
   start:d=>{SEMDAY=d.day!=null&&d.day!==''?+d.day:null;if(S.active){if(S.active.sessionId===d.id){V.tab='hoje';V.stack=[];render();return}const sd=SEMDAY;confirmBox('Treino em andamento',`Você tem <b>${esc(S.active.name)}</b> em andamento. Descartar e iniciar outro?`,'Descartar e iniciar',()=>{S.active=null;SEMDAY=sd;startWorkout(d.id)},true);return}startWorkout(d.id)},
@@ -2042,3 +2044,107 @@ function seMove(X,i,k){if(i===k||i<0||k<0||i>=X.length||k>=X.length)return false
 /* v4: ao terminar o exercício em foco, o foco volta a seguir a ordem do treino */
 {const _sd=ACT.setDone,_xd=ACT.xDone;ACT.setDone=d=>{_sd(d);_wkRefocus(+d.i)};ACT.xDone=d=>{_xd(d);_wkRefocus(+d.i)}}
 if('serviceWorker'in navigator&&location.protocol!=='file:'){navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW',e));let had=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had){had=true;return}if(!S||!S.active){saveNow();location.reload()}else toast('Nova versão instalada — será aplicada ao reabrir')})}
+
+/* ===================== ALIMENTAÇÃO (Tel: gerar, revisar, publicar) =====================
+   Recomendação geral com base em metas (não é prescrição dietética individual). O plano fica em lib.diet do aluno:
+   lib.diet = { draft: <plano em edição>, pub: <última versão publicada>, pubAt }. Cálculos em js/dieta.js; alimentos em js/taco.js. */
+const DIET_TAGS=[['lactose','Sem lactose'],['gluten','Sem glúten'],['ovo','Sem ovo'],['peixe','Sem peixe'],['carne','Sem carne vermelha'],['frango','Sem frango']];
+const DGF={};let DGT=null;
+function dietOk(){return typeof gerarDieta==='function'&&typeof TACO!=='undefined'}
+function dietOf(lib){return lib&&lib.diet||null}
+// dados do aluno para o cálculo: questionário + última avaliação física
+function dietInputs(c){const a=anamOf(c.lib),k=anamBasics(c,a),Q=anamQ(c),A=Q&&Q.answers||{};
+  const ev=(a.evals||[]).slice().sort((x,y)=>(y.date||'').localeCompare(x.date||'')),E=ev[0],R=E?evalCalc(E,k):null;
+  const sexo=k.sex||A.sex||'',birth=k.birth||A.birth||'',idade=birth?ageAt(birth):null,altura=(E&&+E.height)||k.height||+A.height||null,peso=(E&&+E.weight)||+A.weight||null;
+  const txt=normTxt([A.allergies,A.diet_restr].filter(Boolean).join(' ')),tags=[];
+  if(/lactose|leite/.test(txt))tags.push('lactose');if(/gluten|celiac/.test(txt))tags.push('gluten');if(/\bovo/.test(txt))tags.push('ovo');if(/peixe|frutos do mar/.test(txt))tags.push('peixe');
+  if(/vegetarian|vegan|sem carne/.test(txt)){tags.push('carne');if(/vegetarian|vegan/.test(txt)){tags.push('frango');tags.push('peixe')}}else if(/carne vermelha/.test(txt))tags.push('carne');
+  return{sexo,idade,altura,peso,bf:R&&R.bf?r1(R.bf.v):null,fator:+A.activity||1.375,objetivo:({emagrecimento:'emagrecer',hipertrofia:'ganhar'})[A.goal]||'manter',tags:[...new Set(tags)],aversoes:A.food_avoid||'',fonte:{q:!!Q,av:!!E,restr:[A.allergies,A.diet_restr].filter(Boolean).join(' · ')}}}
+function dietForm(uid,c){if(!DGF[uid||'me']){const I=dietInputs(c),d=dietOf(c.lib),D=d&&d.draft;DGF[uid||'me']=Object.assign(I,D?{objetivo:D.objetivo,ajuste:D.metas.ajuste,macros:Object.assign({},D.metas.macros),tags:D.restricoes.tags.slice(),aversoes:D.restricoes.aversoes,refeicoes:D.refeicoes.map(r=>({k:r.k,n:r.n,h:r.h,pct:r.pct,opc:r.opcoes.length>1?3:1}))}:{ajuste:null,macros:Object.assign({},DIETA_MACROS_PADRAO),refeicoes:DIETA_REFEICOES.map(r=>Object.assign({},r))})}return DGF[uid||'me']}
+function dietSave(c){if(c.self){commit();return}clearTimeout(DGT);DGT=setTimeout(()=>anamSave(c),900)}
+function barra(v,m,cor){const p=m?Math.min(100,Math.round(v/m*100)):0;return`<div style="height:6px;border-radius:3px;background:var(--s3);overflow:hidden"><i style="display:block;height:100%;width:${p}%;background:${cor}"></i></div>`}
+
+VIEWS.dieta=function({uid}){const c=anamCtx(uid);let h=hdr('Plano alimentar',c?esc(c.name):'',true);
+  if(!c)return h+'<div class="empty">Abra pela ficha do aluno.</div>';if(!dietOk())return h+'<div class="card">Módulo de alimentação não carregou. Atualize o app.</div>';
+  const d=dietOf(c.lib),D=d&&d.draft,F=dietForm(uid,c);
+  if(!D||F.editando){const tmb=dietaTMB(F),met=tmb?dietaMetas({tmb:tmb.v,fator:F.fator,objetivo:F.objetivo,ajuste:F.ajuste,macros:F.macros}):null,soma=(+F.macros.c||0)+(+F.macros.p||0)+(+F.macros.g||0),spct=F.refeicoes.reduce((s,r)=>s+(+r.pct||0),0);
+    h+=`<div class="card"><div class="av-eyb">Gasto de energia</div>${tmb?`<div class="avt av3">${avTile('Basal',tmb.v.toLocaleString('pt-BR'),'kcal')}${avTile('× atividade',fz(F.fator),'')}${avTile('Gasto diário',met.gasto.toLocaleString('pt-BR'),'kcal')}</div><div class="mu xs" style="margin-top:8px">Fórmula ${tmb.metodo}${F.bf!=null?` (% de gordura ${fz(F.bf)}% da última avaliação física)`:''}.</div>`:'<p class="sm" style="color:var(--warn)">Faltam dados para calcular o gasto: sexo, idade, peso e altura (questionário ou avaliação física).</p>'}
+      <div class="grid2" style="margin-top:10px"><label class="f" style="margin-top:0"><span>Peso (kg)</span><input data-dgf="peso" inputmode="decimal" value="${F.peso??''}"></label><label class="f" style="margin-top:0"><span>Altura (cm)</span><input data-dgf="altura" inputmode="numeric" value="${F.altura??''}"></label><label class="f"><span>Idade</span><input data-dgf="idade" inputmode="numeric" value="${F.idade??''}"></label><label class="f"><span>Sexo</span>${sel('',[['','—'],['M','Masculino'],['F','Feminino']],F.sexo,'data-dgf="sexo"')}</label></div>
+      <label class="f"><span>Nível de atividade</span>${sel('',[['1.2','Sedentário (1,2)'],['1.375','Leve (1,375)'],['1.55','Moderado (1,55)'],['1.725','Intenso (1,725)'],['1.9','Muito intenso (1,9)']],String(F.fator),'data-dgf="fator"')}</label>
+      <div class="mu xs" style="margin-top:6px">${F.fonte.q?'Dados do questionário':'Sem questionário respondido'}${F.fonte.av?' e da última avaliação física':''}.</div></div>
+    <h3>Objetivo</h3><div class="seg">${Object.entries(DIETA_OBJ).map(([k,o])=>`<button class="${F.objetivo===k&&F.ajuste==null?'on':''}" data-act="dObj" data-k="${k}" data-uid="${uid||''}">${o.n.replace(' / recompor','')}</button>`).join('')}</div>
+    <div class="card" style="margin-top:8px"><div class="row"><span class="sp sm">Ajuste nas calorias (%)</span><input data-dgf="ajuste" inputmode="numeric" style="width:80px;text-align:right" value="${F.ajuste??DIETA_OBJ[F.objetivo].aj}"></div>${met?`<div class="row" style="margin-top:8px"><span class="sp">Meta diária</span><b style="font-size:22px">${met.kcal.toLocaleString('pt-BR')} kcal</b></div>`:''}</div>
+    <h3>Macros</h3><div class="card"><div class="grid3">${[['c','Carboidrato'],['p','Proteína'],['g','Gordura']].map(([k,l])=>`<label class="f" style="margin-top:0"><span>${l} %</span><input data-dgm="${k}" inputmode="numeric" value="${F.macros[k]}"></label>`).join('')}</div>
+      ${met?`<div class="mu sm" style="margin-top:8px">${met.c} g carboidrato · ${met.p} g proteína (${F.peso?fz(r1(met.p/F.peso)):'—'} g/kg) · ${met.g} g gordura</div>`:''}${soma!==100?`<div class="sm" style="color:var(--bad);margin-top:6px">A soma está em ${soma}%. Precisa dar 100%.</div>`:''}</div>
+    <h3>Refeições</h3><div class="card" style="padding:4px 14px">${F.refeicoes.map((r,i)=>`<div class="row" style="padding:8px 0;border-top:${i?'1px solid var(--s3)':'none'};gap:8px"><span class="sp sm"><b>${esc(r.n)}</b></span><input data-dgr="${i}" data-f="h" style="width:76px" value="${esc(r.h)}" aria-label="Horário"><input data-dgr="${i}" data-f="pct" inputmode="numeric" style="width:56px;text-align:right" value="${r.pct}" aria-label="Porcentagem do dia"><span class="mu xs">%</span></div>`).join('')}</div>${spct!==100?`<div class="sm" style="color:var(--bad);margin:6px 2px">As refeições somam ${spct}%. Precisa dar 100% (use 0% para tirar uma refeição).</div>`:''}
+    <h3>Restrições</h3><div class="card"><div class="row wrap" style="gap:6px">${DIET_TAGS.map(([k,l])=>`<button class="chip ${F.tags.includes(k)?'on':''}" data-act="dTag" data-k="${k}" data-uid="${uid||''}">${l}</button>`).join('')}</div>
+      <label class="f"><span>Alimentos que não come</span><input data-dgf="aversoes" maxlength="300" value="${esc(F.aversoes||'')}" placeholder="Ex.: fígado, beterraba"></label>${F.fonte.restr?`<div class="mu xs" style="margin-top:6px">Questionário: ${esc(F.fonte.restr)}</div>`:''}</div>
+    <button class="btn pri block big" data-act="dGerar" data-uid="${uid||''}" style="margin-top:12px" ${!tmb||soma!==100||spct!==100?'disabled':''}>${D?'Gerar de novo com estas metas':'Gerar cardápio · 3 opções'}</button>${D?`<button class="btn block" data-act="dCancelEdit" data-uid="${uid||''}" style="margin-top:8px">Cancelar</button>`:''}`;
+    return h}
+  const M=D.metas,mud=!d.pub||d.pubAt<(D.editado||D.criado);
+  h+=`<div class="card"><div class="row"><div class="sp"><div class="av-eyb" style="margin:0">${esc(DIETA_OBJ[D.objetivo]?DIETA_OBJ[D.objetivo].n:'')} · meta diária</div><b style="font-size:24px">${M.kcal.toLocaleString('pt-BR')} kcal</b></div><button class="btn smb" data-act="dEditMetas" data-uid="${uid||''}">Alterar metas</button></div>
+    <div class="avt av3" style="margin-top:8px">${avTile(`Carboidrato ${M.macros.c}%`,M.c+' g','')}${avTile(`Proteína ${M.macros.p}%`,M.p+' g',D.base.peso?fz(r1(M.p/D.base.peso))+' g/kg':'')}${avTile(`Gordura ${M.macros.g}%`,M.g+' g','')}</div>
+    <div class="mu xs" style="margin-top:8px">Basal ${D.base.tmb} kcal (${D.base.metodo}) × ${fz(D.base.fator)} = ${M.gasto.toLocaleString('pt-BR')} kcal · ajuste ${M.ajuste>0?'+':''}${M.ajuste}% · água ${fz(D.agua)} L/dia</div></div>`;
+  h+=`<div class="card" style="border-left:4px solid var(--${mud?'warn':'ok'})"><div class="sm">${!d.pub?'📝 <b>Rascunho:</b> o aluno ainda não vê este plano.':mud?`📝 <b>Mudanças não publicadas.</b> O aluno vê a versão de ${new Date(d.pubAt).toLocaleDateString('pt-BR')}.`:`✓ <b>Publicado</b> em ${new Date(d.pubAt).toLocaleDateString('pt-BR')}. O aluno vê esta versão.`}</div></div>`;
+  h+=`<h3>Refeições</h3><div class="card" style="padding:4px 14px">${D.refeicoes.map((r,i)=>{const w=r.opcoes.filter(o=>o.desvio>10).length;return`<div class="li tap" data-act="go" data-v="dietaref" data-uid="${uid||''}" data-k="${r.k}" style="${i?'':'border-top:none'}"><div class="t"><b>${esc(r.n)} <span class="mu sm">· ${esc(r.h)}</span></b><span class="mu sm">${r.meta.kcal} kcal · ${r.opcoes.length} opç${r.opcoes.length===1?'ão':'ões'}${w?` · <span style="color:var(--warn)">${w} fora da meta</span>`:''}</span><span class="xs mu">${r.opcoes.map(o=>esc(o.nome)).join(' · ')}</span></div><span class="mu">›</span></div>`}).join('')}</div>`;
+  h+=`<button class="btn pri block big" data-act="dPublicar" data-uid="${uid||''}" style="margin-top:12px" ${mud?'':'disabled'}>${d.pub?'Publicar mudanças para o aluno':'Publicar para o aluno'}</button>
+    <p class="mu xs" style="margin:8px 2px">Recomendação geral com base nas metas de calorias e macros; não substitui o acompanhamento de um nutricionista. Valores: ${esc(TACO_FONTE)}.</p>
+    ${d.pub?`<button class="btn ghost block" data-act="dDespublicar" data-uid="${uid||''}" style="color:var(--bad)">Tirar o plano do aluno</button>`:''}`;
+  return h};
+
+let DREF={k:null,o:0};
+VIEWS.dietaref=function({uid,k}){const c=anamCtx(uid),d=c&&dietOf(c.lib),D=d&&d.draft;if(!D)return hdr('Revisar cardápio','',true)+'<div class="empty">Sem plano.</div>';
+  const r=D.refeicoes.find(x=>x.k===k)||D.refeicoes[0];if(DREF.k!==r.k)DREF={k:r.k,o:0};const o=r.opcoes[Math.min(DREF.o,r.opcoes.length-1)];
+  let h=hdr('Revisar cardápio',`${esc(r.n)} · meta ${r.meta.kcal} kcal`,true);
+  h+=`<div class="row wrap" style="gap:6px;margin-bottom:8px">${D.refeicoes.map(x=>`<button class="chip ${x.k===r.k?'on':''}" data-act="dRefGo" data-uid="${uid||''}" data-k="${x.k}">${esc(x.n.replace(' da manhã',' manhã').replace(' da tarde',' tarde'))}</button>`).join('')}</div>`;
+  if(r.opcoes.length>1)h+=`<div class="seg" style="margin-bottom:8px">${r.opcoes.map((x,i)=>`<button class="${i===DREF.o?'on':''}" data-act="dOpc" data-i="${i}">Opção ${i+1}</button>`).join('')}</div>`;
+  if(!o)return h+'<div class="card">Nenhuma opção. Toque em "Gerar de novo".</div>'+`<button class="btn block" data-act="dRefRegen" data-uid="${uid||''}" data-k="${r.k}">Gerar de novo</button>`;
+  h+=`<div class="card"><label class="f" style="margin-top:0"><span>Nome da opção</span><input data-dgo="nome" data-uid="${uid||''}" data-k="${r.k}" maxlength="60" value="${esc(o.nome)}"></label></div>`;
+  h+=`<div class="card" style="padding:4px 14px">${o.itens.map((it,i)=>{const a=ALIM[it.k]||{n:it.k};return`<div class="row" style="padding:8px 0;border-top:${i?'1px solid var(--s3)':'none'};gap:8px"><span class="sp sm" style="min-width:0">${esc(a.n)}<div class="mu xs">${esc(medidaTxt(it))}</div></span>${a.livre?'<span class="mu xs">à vontade</span>':`<input data-dgi="${i}" data-uid="${uid||''}" data-k="${r.k}" inputmode="numeric" style="width:66px;text-align:right" value="${it.gramas}" aria-label="Gramas de ${esc(a.n)}"><span class="mu xs">g</span>`}<button class="btn smb" data-act="dSwap" data-uid="${uid||''}" data-k="${r.k}" data-i="${i}" aria-label="Trocar ${esc(a.n)}">⇄</button><button class="btn smb ghost" data-act="dDel" data-uid="${uid||''}" data-k="${r.k}" data-i="${i}" aria-label="Tirar ${esc(a.n)}">✕</button></div>`}).join('')}
+    <button class="btn block ghost" data-act="dAdd" data-uid="${uid||''}" data-k="${r.k}" style="margin:6px 0 8px;border:1px dashed var(--s3)">+ Adicionar alimento</button></div>`;
+  const T=o.total,mt=r.meta,ok=o.desvio<=10;
+  h+=`<div class="card"><div class="row" style="margin-bottom:8px"><b class="sp">Opção ${DREF.o+1} vs meta</b><span class="sm" style="color:var(--${ok?'ok':'warn'});font-weight:700">${ok?'dentro da meta':`${o.desvio}% fora`}</span></div>
+    ${[['Calorias',T.kcal,mt.kcal,'','var(--ac)'],['Carboidrato',T.c,mt.c,' g','var(--ac)'],['Proteína',T.p,mt.p,' g','var(--ok)'],['Gordura',T.g,mt.g,' g','var(--warn)']].map(([l,v,m,u,cor])=>`<div class="row" style="gap:10px;margin-top:6px"><span class="sm" style="width:92px">${l}</span><div class="sp">${barra(v,m,cor)}</div><span class="sm" style="width:84px;text-align:right">${v} / ${m}${u}</span></div>`).join('')}
+    <button class="btn block" data-act="dAjustar" data-uid="${uid||''}" data-k="${r.k}" style="margin-top:10px">Ajustar quantidades para a meta</button></div>`;
+  if(r.subs&&r.subs.length)h+=`<h3>Substituições mostradas ao aluno</h3><div class="card sm">${r.subs.map(s=>`<div style="padding:4px 0">${esc(ALIM[s.k].n)} ${s.gramas} g ↔ ${s.por.map(p=>`${esc(ALIM[p.k].n)} ${p.gramas} g`).join(' ↔ ')}</div>`).join('')}</div>`;
+  h+=`<div class="grid2" style="margin-top:12px"><button class="btn" data-act="dRefRegen" data-uid="${uid||''}" data-k="${r.k}">Gerar esta refeição de novo</button><button class="btn pri" data-act="back">Pronto</button></div>`;
+  return h};
+
+function dCtx(d){const c=anamCtx(d.uid||null),dd=c&&dietOf(c.lib);return{c,D:dd&&dd.draft,dd}}
+function dRef(D,k){return D.refeicoes.find(x=>x.k===k)}
+function dTouch(c,D){D.editado=Date.now();dietSave(c)}
+function dRecalcSubs(r,D){const o=r.opcoes[0];if(!o)return;const restr=lerRestricoes(D.restricoes.tags,D.restricoes.aversoes);r.subs=o.itens.filter(it=>it.papel!=='fixo'&&ALIM[it.k]&&ALIM[it.k].g!=='V').map(it=>({k:it.k,gramas:it.gramas,por:substituicoes(it.k,it.gramas,restr,3,r.k)}))}
+Object.assign(ACT,{
+  dObj:d=>{const F=DGF[d.uid||'me'];F.objetivo=d.k;F.ajuste=null;render()},
+  dTag:d=>{const F=DGF[d.uid||'me'];F.tags=F.tags.includes(d.k)?F.tags.filter(x=>x!==d.k):F.tags.concat(d.k);render()},
+  dEditMetas:d=>{const c=anamCtx(d.uid||null);delete DGF[d.uid||'me'];dietForm(d.uid||null,c).editando=true;render()},
+  dCancelEdit:d=>{delete DGF[d.uid||'me'];render()},
+  dGerar:d=>{const c=anamCtx(d.uid||null),F=DGF[d.uid||'me'];const P=gerarDieta({sexo:F.sexo,peso:+F.peso,altura:+F.altura,idade:+F.idade,bf:F.bf,fator:+F.fator,objetivo:F.objetivo,ajuste:F.ajuste,macros:{c:+F.macros.c,p:+F.macros.p,g:+F.macros.g},refeicoes:F.refeicoes.map(r=>({k:r.k,n:r.n,h:r.h,pct:+r.pct,opc:r.opc||(DIETA_REFEICOES.find(x=>x.k===r.k)||{}).opc||1})),restricoes:{tags:F.tags,aversoes:F.aversoes}});
+    if(P.erro){toast(P.erro);return}const old=dietOf(c.lib);c.lib.diet={draft:P,pub:old&&old.pub||null,pubAt:old&&old.pubAt||0};delete DGF[d.uid||'me'];dietSave(c);render();toast('Cardápio gerado: revise e publique')},
+  dPublicar:d=>{const{c,D,dd}=dCtx(d);if(!D)return;confirmBox(dd.pub?'Publicar mudanças':'Publicar plano alimentar',`O aluno passa a ver este plano na tela Alimentação. Ele pode só consultar e pedir alterações.`,'Publicar',()=>{const P=clone(D);P.status='publicado';dd.pub=P;dd.pubAt=Date.now();D.status='publicado';dietSave(c);render();toast('Plano publicado para o aluno')})},
+  dDespublicar:d=>{const{c,dd}=dCtx(d);confirmBox('Tirar o plano do aluno','O aluno deixa de ver o plano alimentar. O rascunho continua aqui.','Tirar do aluno',()=>{dd.pub=null;dd.pubAt=0;dietSave(c);render()},true)},
+  dRefGo:d=>{DREF={k:d.k,o:0};const t=topV();if(t&&t.view==='dietaref'){t.params.k=d.k}render()},
+  dOpc:d=>{DREF.o=+d.i;render()},
+  dAjustar:d=>{const{c,D}=dCtx(d),r=dRef(D,d.k),o=r.opcoes[DREF.o];ajustarOpcao(o,r.meta);if(DREF.o===0)dRecalcSubs(r,D);dTouch(c,D);render();toast(o.desvio<=10?'Quantidades ajustadas':'Ajustado o possível: '+o.desvio+'% fora — troque um alimento')},
+  dDel:d=>{const{c,D}=dCtx(d),r=dRef(D,d.k),o=r.opcoes[DREF.o];o.itens.splice(+d.i,1);recalcOpcao(o,r.meta);if(DREF.o===0)dRecalcSubs(r,D);dTouch(c,D);render()},
+  dSwap:d=>{const{D}=dCtx(d),r=dRef(D,d.k),o=r.opcoes[DREF.o],it=o.itens[+d.i],g=ALIM[it.k].g;dPick(d,`Trocar ${ALIM[it.k].n}`,Object.keys(ALIM).filter(k=>ALIM[k].g===g&&k!==it.k),true)},
+  dAdd:d=>dPick(d,'Adicionar alimento',Object.keys(ALIM),false),
+  dPickGo:d=>{const{c,D}=dCtx(d),r=dRef(D,d.k),o=r.opcoes[DREF.o],a=ALIM[d.a],g0=a.passo==='un'?a.un[1]:(a.un?a.un[1]:100);
+    if(d.swap==='1'){const it=o.itens[+d.i],eq=substituicoes(it.k,it.gramas,null,99,null).find(s=>s.k===d.a);o.itens[+d.i]={k:d.a,papel:it.papel,gramas:eq?eq.gramas:g0,un:eq?eq.un:(a.passo==='un'?1:null)}}
+    else o.itens.push({k:d.a,papel:a.livre?'fixo':(a.g==='C'||a.g==='P'||a.g==='G'?a.g:'fixo'),gramas:g0,un:a.passo==='un'?1:null});
+    recalcOpcao(o,r.meta);if(DREF.o===0)dRecalcSubs(r,D);dTouch(c,D);$('#modal').hidden=true;render()},
+  dRefRegen:d=>{const{c,D}=dCtx(d),i=D.refeicoes.findIndex(x=>x.k===d.k),r=D.refeicoes[i];D.seed=(D.seed||0)+1;
+    const P=gerarDieta({sexo:D.base.sexo,peso:D.base.peso,altura:D.base.altura,idade:D.base.idade,bf:D.base.bf,fator:D.base.fator,objetivo:D.objetivo,ajuste:D.metas.ajuste,macros:D.metas.macros,refeicoes:[{k:r.k,n:r.n,h:r.h,pct:r.pct,opc:r.opcoes.length>1?3:(DIETA_REFEICOES.find(x=>x.k===r.k)||{}).opc||1}],restricoes:D.restricoes,seed:D.seed});
+    if(P.erro||!P.refeicoes[0]){toast(P.erro||'Não foi possível gerar');return}
+    const nr=P.refeicoes[0];nr.meta=r.meta;D.refeicoes[i]=Object.assign({},r,{opcoes:nr.opcoes.map(o=>recalcOpcao(o,r.meta)),subs:nr.subs});DREF.o=0;dTouch(c,D);render();toast('Refeição gerada de novo')}
+});
+function dPick(d,titulo,keys,swap){const grupos={C:'Carboidratos',P:'Proteínas',G:'Gorduras',L:'Leguminosas',F:'Frutas',V:'Vegetais'};
+  modal(titulo,`<div style="max-height:56vh;overflow:auto">${Object.entries(grupos).map(([g,l])=>{const ks=keys.filter(k=>ALIM[k].g===g);return ks.length?`<div class="mu xs" style="margin:10px 0 4px">${l}</div>${ks.map(k=>`<button class="li tap" style="width:100%;background:none;border:none;color:inherit;font:inherit;text-align:left" data-act="dPickGo" data-uid="${d.uid||''}" data-k="${d.k}" data-i="${d.i||''}" data-a="${k}" data-swap="${swap?1:0}"><div class="t"><b class="sm">${esc(ALIM[k].n)}</b><span class="mu xs">${(v=>`${v.kcal} kcal · C ${fz(v.c)} · P ${fz(v.p)} · G ${fz(v.g)} por 100 g`)(alimVal(k))}</span></div></button>`).join('')}`:''}).join('')}</div>`,[{label:'Cancelar'}])}
+document.addEventListener('input',ev=>{const t=ev.target,d=t.dataset;
+  if(d.dgf||d.dgm||d.dgr!=null&&d.dgr!==''){const F=DGF[(topV()&&topV().params.uid)||'me'];if(!F)return;
+    if(d.dgf){const v=t.value;F[d.dgf]=['peso','altura','idade','ajuste'].includes(d.dgf)?(v===''?null:+String(v).replace(',','.')):d.dgf==='fator'?+v:v}
+    else if(d.dgm)F.macros[d.dgm]=+t.value||0;else{const r=F.refeicoes[+d.dgr];if(d.f==='pct')r.pct=+t.value||0;else r.h=t.value}
+    clearTimeout(DGF._t);DGF._t=setTimeout(()=>{const a=document.activeElement,id=a&&(a.dataset.dgf||a.dataset.dgm||('r'+a.dataset.dgr+a.dataset.f)),pos=a&&a.selectionStart;render();const b=[...document.querySelectorAll('[data-dgf],[data-dgm],[data-dgr]')].find(x=>(x.dataset.dgf||x.dataset.dgm||('r'+x.dataset.dgr+x.dataset.f))===id);if(b){b.focus();try{b.setSelectionRange(pos,pos)}catch(e){}}},700);return}
+  if(d.dgi!=null&&d.dgi!==''){const{c,D}=dCtx(d),r=dRef(D,d.k),o=r.opcoes[DREF.o],it=o.itens[+d.dgi],v=+t.value;if(!(v>=0))return;it.gramas=v;it.un=ALIM[it.k].passo==='un'?Math.max(1,Math.round(v/ALIM[it.k].un[1])):null;recalcOpcao(o,r.meta);if(DREF.o===0)dRecalcSubs(r,D);dTouch(c,D);clearTimeout(DGF._t2);DGF._t2=setTimeout(render,900);return}
+  if(d.dgo==='nome'){const{c,D}=dCtx(d),r=dRef(D,d.k),o=r.opcoes[DREF.o];o.nome=t.value.slice(0,60);dTouch(c,D)}});
+document.addEventListener('change',ev=>{const t=ev.target,d=t.dataset;if(d.dgf==='sexo'||d.dgf==='fator'){const F=DGF[(topV()&&topV().params.uid)||'me'];if(F){F[d.dgf]=d.dgf==='fator'?+t.value:t.value;render()}}});
