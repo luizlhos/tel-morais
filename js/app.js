@@ -1,4 +1,4 @@
-const APP_VERSION='2.3.0';
+const APP_VERSION='2.4.0';
 const EXDIR='exercicios/';
 /* ---------- tema (preferência do aparelho) ---------- */
 const THEME_KEY='telm.theme';const MQ_DARK=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
@@ -320,7 +320,7 @@ VIEWS.hoje=function(){
   if(S.active)return viewWorkout();
   const p=myActive();
   let h=hdr(ME&&ME.name?'Olá, '+ME.name.split(' ')[0]:'Hoje',esc((t=>t.charAt(0).toUpperCase()+t.slice(1))(new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}))),false,`<div class="row" style="gap:6px">${syncBadge()}<button class="ib" data-act="go" data-v="ajuda" aria-label="Ajuda">?</button></div>`);
-  h+=finBanner()+acBanner();
+  h+=finBanner()+acBanner()+dietBanner();
   if(!p)return h+firstSteps();
   if(!p.sessions.length)return h+`<div class="card hero"><h2>${p?'Seu plano ainda não tem treinos':'Nenhum plano ativo'}</h2><p class="mu sm">Crie um plano (ou adicione treinos a ele) na aba <b>Treinos</b>.${ME.role!=='master'?' O master também pode montar para você — aparece aqui automaticamente.':''}</p><button class="btn pri block" data-act="tab" data-t="treinos">Ir para Treinos</button><div style="height:8px"></div><button class="btn block" data-act="syncNow">Atualizar</button></div>`;
   if(isSem(p))semSync(p);
@@ -827,7 +827,7 @@ async function saveAnamRemote(uid){const m=ANM[uid];if(!m||!m.dirty)return;if(!n
   m.dirty=false;m.lib=lib;toast('Salvo para '+m.name)}
 async function loadAnam(u){if(!navigator.onLine){toast('Precisa de internet');return false}
   const{data,error}=await SB.from('user_docs').select('program,state').eq('user_id',u.id).maybeSingle();if(error){toast(friendlyErr(error));return false}
-  ANM[u.id]={name:u.name,lib:libFrom(data&&data.program)||emptyLib(),body:(data&&data.state&&data.state.body)||{},dirty:false};return true}
+  ANM[u.id]={name:u.name,lib:libFrom(data&&data.program)||emptyLib(),body:(data&&data.state&&data.state.body)||{},dreq:(data&&data.state&&data.state.dreq)||null,dirty:false};return true}
 async function openAnamFor(u){if(await loadAnam(u)){ANM_TAB='res';go('anam',{uid:u.id})}}
 
 /* ---------- cálculos ---------- */
@@ -1310,7 +1310,7 @@ VIEWS.ajuda=function(){
 
 /* ================= NUVEM: login, sincronização e painel master ================= */
 function hsh(str){let h=5381;for(let i=0;i<str.length;i++)h=((h<<5)+h+str.charCodeAt(i))|0;return h.toString(36)+':'+str.length}
-function stateDoc(){return{v:3,prog:S.prog,settings:S.settings,active:S.active||null,body:S.body||null,req:S.req||null,reqDone:S.reqDone||null}}
+function stateDoc(){return{v:3,prog:S.prog,settings:S.settings,active:S.active||null,body:S.body||null,req:S.req||null,dreq:S.dreq||null,reqDone:S.reqDone||null}}
 function baseHashes(){const y=S._sync;y.progH=hsh(JSON.stringify(S.lib));y.stateH=hsh(JSON.stringify(stateDoc()))}
 function detect(){const y=S._sync;const ph=hsh(JSON.stringify(S.lib));if(ph!==y.progH){y.progH=ph;y.progEd=Date.now();y.progDirty=true}
   const sh=hsh(JSON.stringify(stateDoc()));if(sh!==y.stateH){y.stateH=sh;y.stateEd=Date.now();y.stateDirty=true}}
@@ -1354,7 +1354,7 @@ async function sync(manual){
     const{data:doc,error:de}=await SB.from('user_docs').select('program,program_edited,state,state_edited').eq('user_id',uid).maybeSingle();if(de)throw de;
     if(doc){
       if(+doc.program_edited>y.progEd&&!y.progDirty){const lib=libFrom(doc.program);if(lib){S.lib=lib;migrate();y.progEd=+doc.program_edited;y.progH=hsh(JSON.stringify(S.lib));changed=true}}
-      if(+doc.state_edited>y.stateEd&&!y.stateDirty&&doc.state&&doc.state.prog){const st=doc.state;S.prog=st.prog||S.prog;if(st.body)S.body=st.body;if('req' in st)S.req=st.req;if(st.reqDone)S.reqDone=st.reqDone;S.settings=Object.assign(S.settings,st.settings||{});const ra=st.active;if(ra&&ra.id&&!S.logs.some(L=>L.id===ra.id)&&(!S.active||S.active.id===ra.id)){const was=!!S.active;S.active=ra;restoreTimer();if(!was)RESUMED=true}migrate();y.stateEd=+doc.state_edited;y.stateH=hsh(JSON.stringify(stateDoc()));changed=true}
+      if(+doc.state_edited>y.stateEd&&!y.stateDirty&&doc.state&&doc.state.prog){const st=doc.state;S.prog=st.prog||S.prog;if(st.body)S.body=st.body;if('req' in st)S.req=st.req;if('dreq' in st)S.dreq=st.dreq;if(st.reqDone)S.reqDone=st.reqDone;S.settings=Object.assign(S.settings,st.settings||{});const ra=st.active;if(ra&&ra.id&&!S.logs.some(L=>L.id===ra.id)&&(!S.active||S.active.id===ra.id)){const was=!!S.active;S.active=ra;restoreTimer();if(!was)RESUMED=true}migrate();y.stateEd=+doc.state_edited;y.stateH=hsh(JSON.stringify(stateDoc()));changed=true}
     }
     // baixa treinos novos/alterados
     const since=y.lastPull?new Date(Date.parse(y.lastPull)-5*60e3).toISOString():'1970-01-01T00:00:00Z';let from=0,maxU=y.lastPull;
@@ -1801,9 +1801,10 @@ function acRow(u,doc,logs,avDate,finLate){const T=todayISO(),prog=doc&&doc.progr
     if(r.avAge==null?dDiff(start,T)>=AC_REEVAL:r.avAge>=AC_REEVAL)al.push(['eval',r.avAge==null?'Sem avaliação registrada':`Última avaliação há ${Math.floor(r.avAge/7)} semanas`]);
     if(pains.length)al.push(['pain',`Relatou dor: ${pains.map(L=>L.fb.painNote||'sem detalhe').join('; ')}`]);
     if(finLate)al.push(['fin','Mensalidade vencida'])}
+  if(st.dreq&&st.dreq.id&&!(S.reqDone&&S.reqDone[st.dreq.id]))al.unshift(['dreq',`Pediu alteração na alimentação em ${new Date(st.dreq.at).toLocaleDateString('pt-BR')}${st.dreq.msg?': '+st.dreq.msg:''}`,st.dreq.id]);
   if(st.req&&st.req.id&&!(S.reqDone&&S.reqDone[st.req.id]))al.unshift(['req',`Pediu plano novo em ${new Date(st.req.at).toLocaleDateString('pt-BR')}${st.req.msg?': '+st.req.msg:''}`,st.req.id]);
   r.alerts=al;return r}
-const AC_IC={idle:'💤',plan:'📋',eval:'📏',pain:'🩹',fin:'💰',req:'📝'};
+const AC_IC={idle:'💤',plan:'📋',eval:'📏',pain:'🩹',fin:'💰',req:'📝',dreq:'🍽'};
 function acCard(r){return`<div class="li tap" data-act="go" data-v="user" data-id="${r.u.id}"><div class="t"><b>${esc(r.u.name)}</b>${r.alerts.map(([k,t])=>`<span class="sm" style="display:block">${AC_IC[k]} ${esc(t)}</span>`).join('')}</div>${r.u.info&&r.u.info.phone?`<button class="btn smb" data-act="openWa" data-u="${esc(waURL(r.u.info.phone,`Olá, ${firstName(r.u.name)}! Tudo bem? Passando para saber como estão os treinos 💪`))}" aria-label="WhatsApp">💬</button>`:''}<span class="mu">›</span></div>`}
 VIEWS.acomp=function(){let h=hdr('Acompanhamento','',true,'<button class="btn smb" data-act="acReload">↻</button>');
   if(!ACOMP||(!ACOMP.loading&&!ACOMP.rows&&!ACOMP.err)){loadAcomp();return h+'<div class="empty">Carregando…</div>'}if(ACOMP.loading)return h+'<div class="empty">Carregando…</div>';if(ACOMP.err)return h+`<div class="card" style="color:var(--bad)">${esc(ACOMP.err)}</div>`;
@@ -1819,7 +1820,7 @@ function freqBadge(f){if(f==null)return'<span class="mu sm">—</span>';const c=
 function acUserCard(u){if(!ACOMP||(!ACOMP.rows&&!ACOMP.loading&&!ACOMP.err)||Date.now()-ACOMP.at>6e5&&!ACOMP.loading){loadAcomp();return''}
   const r=ACOMP.rows&&ACOMP.rows.find(x=>x.u.id===u.id);if(!r)return'';
   const mx=Math.max(r.perWeek||0,...r.wk,1),lbs=['esta sem.','1 sem.','2 sem.','3 sem.'];
-  let h=`<h3>Acompanhamento</h3><div class="card">${r.alerts.length?r.alerts.map(([k,t,id])=>`<div class="sm" style="margin-bottom:4px">${AC_IC[k]} ${esc(t)}</div>${k==='req'?`<div class="row" style="gap:8px;margin:6px 0 8px"><button class="btn smb sp" data-act="manageProg" data-id="${u.id}">Ver / montar planos</button><button class="btn smb sp" data-act="reqDone" data-id="${id}">Pedido atendido</button></div>`:''}`).join('')+'<div style="height:6px"></div>':''}
+  let h=`<h3>Acompanhamento</h3><div class="card">${r.alerts.length?r.alerts.map(([k,t,id])=>`<div class="sm" style="margin-bottom:4px">${AC_IC[k]} ${esc(t)}</div>${k==='req'?`<div class="row" style="gap:8px;margin:6px 0 8px"><button class="btn smb sp" data-act="manageProg" data-id="${u.id}">Ver / montar planos</button><button class="btn smb sp" data-act="reqDone" data-id="${id}">Pedido atendido</button></div>`:k==='dreq'?`<div class="row" style="gap:8px;margin:6px 0 8px"><button class="btn smb sp" data-act="dietOpenUser" data-id="${u.id}">Plano alimentar</button><button class="btn smb sp" data-act="reqDone" data-id="${id}">Pedido atendido</button></div>`:''}`).join('')+'<div style="height:6px"></div>':''}
     <div class="row" style="align-items:flex-end;gap:10px;height:90px">${r.wk.slice().reverse().map((n,k)=>`<div class="sp" style="text-align:center"><div class="xs mu">${n}${r.perWeek?'/'+r.perWeek:''}</div><div style="height:${Math.max(4,Math.round(n/mx*56))}px;background:${r.perWeek&&n>=r.perWeek?'var(--ok)':'var(--ac)'};border-radius:6px;margin:4px 6px 0"></div><div class="xs mu" style="margin-top:4px">${lbs[3-k]}</div></div>`).join('')}</div>
     <div class="row" style="margin-top:10px"><span class="sp sm">Frequência (4 sem.)</span>${freqBadge(r.freq)}</div>
     ${r.p?`<div class="row" style="margin-top:6px"><span class="sp sm">Plano</span><span class="sm">${esc(r.p.name)} · semana ${Math.min(r.w,r.N)} de ${r.N}</span></div>`:''}
@@ -1907,7 +1908,7 @@ Object.assign(ACT,{
   grdCopyGo:d=>{const p=planOf(d);const g=gradeOf(p),s0=sessIn(p,g[+d.from]);if(!s0)return;const c=clone(s0);c.id=uid36('s');c.name=s0.name+' ('+DSEM[+d.to]+')';c.exercises.forEach(e=>e.id=uid36('e'));p.sessions.push(c);g[+d.to]=c.id;p.grade=g;$('#modal').hidden=true;psave();render();toast('Copiado para '+DSEML[+d.to])},
   reqPlan:()=>{if(!MYBILL)loadMyBill();modal('Pedir plano novo ao Tel',`<p class="sm" style="margin-top:0">O pedido aparece para o Tel no app${coachWa()?' e abre uma conversa com ele no WhatsApp':''}.</p><label class="f"><span>O que você gostaria de mudar? (opcional)</span><textarea id="reqMsg" rows="3" maxlength="300" placeholder="Ex.: treinar 4 vezes por semana, focar em pernas, treinar em casa"></textarea></label>`,[{label:'Cancelar'},{label:'Enviar pedido',cls:'pri',fn:()=>{const msg=($('#reqMsg')&&$('#reqMsg').value||'').trim().slice(0,300);S.req={id:uid36('r'),at:Date.now(),msg};save();render();toast('Pedido enviado ao Tel');const u=reqWa(msg);if(u)window.open(u,'_blank','noopener')}}])},
   reqCancel:()=>confirmBox('Cancelar pedido','Cancelar o pedido de plano novo?','Cancelar pedido',()=>{S.req=null;save();render()},true),
-  reqDone:d=>{S.reqDone=Object.assign({},S.reqDone||{});S.reqDone[d.id]=Date.now();const ks=Object.keys(S.reqDone);if(ks.length>200)ks.sort((a,b)=>S.reqDone[a]-S.reqDone[b]).slice(0,ks.length-200).forEach(k=>delete S.reqDone[k]);save();if(ACOMP&&ACOMP.rows)ACOMP.rows.forEach(r=>{r.alerts=r.alerts.filter(a=>!(a[0]==='req'&&a[2]===d.id))});render();toast('Pedido marcado como atendido')},
+  reqDone:d=>{S.reqDone=Object.assign({},S.reqDone||{});S.reqDone[d.id]=Date.now();const ks=Object.keys(S.reqDone);if(ks.length>200)ks.sort((a,b)=>S.reqDone[a]-S.reqDone[b]).slice(0,ks.length-200).forEach(k=>delete S.reqDone[k]);save();if(ACOMP&&ACOMP.rows)ACOMP.rows.forEach(r=>{r.alerts=r.alerts.filter(a=>a[2]!==d.id)});render();toast('Pedido marcado como atendido')},
   semSkip:d=>{const p=myActive();if(!p)return;const W=semWeek(p),o=W.days[+d.day];if(!o||!o.s)return;confirmBox('Pular treino',`Pular <b>${esc(o.s.name)}</b> de ${DSEML[o.d]}? Ele sai dos pendentes e, no fim da semana, fica registrado como perdido.`,'Pular',()=>{const pr=progOf(p);pr.skip=(pr.skip||[]).filter(k=>k>=addDays(W.mon,-28)).concat(W.mon+':'+o.d);save();render();toast('Treino pulado')})},
   shiftWeek:d=>{const p=myActive();if(!p)return;const pr=progOf(p);if(isSem(p)){semSync(p);pr.start=addDays(pr.start,-7*(+d.d));semSync(p);save();render();return}pr.week=Math.min(weeksOf(p)+1,Math.max(1,pr.week+(+d.d)));save();render()},
   delLog:d=>confirmBox('Excluir registro','Este treino será removido do histórico.','Excluir',()=>{const L0=S.logs.find(L=>L.id===d.id);S.logs=S.logs.filter(L=>L.id!==d.id);if(L0){S._sync.dirtyLogs=S._sync.dirtyLogs.filter(x=>x!==d.id);S._sync.delLogs.push({id:L0.id,date:L0.date})}save();V.stack.pop();render()},true),
@@ -2081,7 +2082,8 @@ VIEWS.dieta=function({uid}){const c=anamCtx(uid);let h=hdr('Plano alimentar',c?e
       <label class="f"><span>Alimentos que não come</span><input data-dgf="aversoes" maxlength="300" value="${esc(F.aversoes||'')}" placeholder="Ex.: fígado, beterraba"></label>${F.fonte.restr?`<div class="mu xs" style="margin-top:6px">Questionário: ${esc(F.fonte.restr)}</div>`:''}</div>
     <button class="btn pri block big" data-act="dGerar" data-uid="${uid||''}" style="margin-top:12px" ${!tmb||soma!==100||spct!==100?'disabled':''}>${D?'Gerar de novo com estas metas':'Gerar cardápio · 3 opções'}</button>${D?`<button class="btn block" data-act="dCancelEdit" data-uid="${uid||''}" style="margin-top:8px">Cancelar</button>`:''}`;
     return h}
-  const M=D.metas,mud=!d.pub||d.pubAt<(D.editado||D.criado);
+  const M=D.metas,mud=!d.pub||d.pubAt<(D.editado||D.criado),rq=!c.self&&ANM[uid]&&ANM[uid].dreq;
+  if(rq&&!(S.reqDone&&S.reqDone[rq.id]))h+=`<div class="card" style="border-left:4px solid var(--warn)"><div class="sm">🍽 <b>${esc(firstName(c.name))} pediu alteração</b> em ${new Date(rq.at).toLocaleDateString('pt-BR')}${rq.msg?`:<div style="margin-top:4px">"${esc(rq.msg)}"</div>`:'.'}</div><button class="btn smb" data-act="reqDone" data-id="${rq.id}" style="margin-top:8px">Pedido atendido</button></div>`;
   h+=`<div class="card"><div class="row"><div class="sp"><div class="av-eyb" style="margin:0">${esc(DIETA_OBJ[D.objetivo]?DIETA_OBJ[D.objetivo].n:'')} · meta diária</div><b style="font-size:24px">${M.kcal.toLocaleString('pt-BR')} kcal</b></div><button class="btn smb" data-act="dEditMetas" data-uid="${uid||''}">Alterar metas</button></div>
     <div class="avt av3" style="margin-top:8px">${avTile(`Carboidrato ${M.macros.c}%`,M.c+' g','')}${avTile(`Proteína ${M.macros.p}%`,M.p+' g',D.base.peso?fz(r1(M.p/D.base.peso))+' g/kg':'')}${avTile(`Gordura ${M.macros.g}%`,M.g+' g','')}</div>
     <div class="mu xs" style="margin-top:8px">Basal ${D.base.tmb} kcal (${D.base.metodo}) × ${fz(D.base.fator)} = ${M.gasto.toLocaleString('pt-BR')} kcal · ajuste ${M.ajuste>0?'+':''}${M.ajuste}% · água ${fz(D.agua)} L/dia</div></div>`;
@@ -2148,3 +2150,56 @@ document.addEventListener('input',ev=>{const t=ev.target,d=t.dataset;
   if(d.dgi!=null&&d.dgi!==''){const{c,D}=dCtx(d),r=dRef(D,d.k),o=r.opcoes[DREF.o],it=o.itens[+d.dgi],v=+t.value;if(!(v>=0))return;it.gramas=v;it.un=ALIM[it.k].passo==='un'?Math.max(1,Math.round(v/ALIM[it.k].un[1])):null;recalcOpcao(o,r.meta);if(DREF.o===0)dRecalcSubs(r,D);dTouch(c,D);clearTimeout(DGF._t2);DGF._t2=setTimeout(render,900);return}
   if(d.dgo==='nome'){const{c,D}=dCtx(d),r=dRef(D,d.k),o=r.opcoes[DREF.o];o.nome=t.value.slice(0,60);dTouch(c,D)}});
 document.addEventListener('change',ev=>{const t=ev.target,d=t.dataset;if(d.dgf==='sexo'||d.dgf==='fator'){const F=DGF[(topV()&&topV().params.uid)||'me'];if(F){F[d.dgf]=d.dgf==='fator'?+t.value:t.value;render()}}});
+
+/* ===================== ALIMENTAÇÃO (aluno: ver e pedir alteração) =====================
+   O aluno vê só a versão publicada pelo Tel (lib.diet.pub). Pedido de alteração fica no estado do aluno (S.dreq)
+   e aparece para o Tel no Acompanhamento e na tela Plano alimentar. */
+const DIET_IC={cafe:'☕',lanche1:'🍎',almoco:'🍽',lanche2:'🥪',jantar:'🍲',ceia:'🥛'};
+function myDiet(){const d=S.lib&&S.lib.diet;return d&&d.pub||null}
+function hMin(h){const m=/^(\d{1,2})(?::|h)?(\d{2})?/.exec(String(h||''));return m?(+m[1])*60+(+m[2]||0):null}
+function hTxt(h){const v=hMin(h);if(v==null)return esc(h||'');const H=Math.floor(v/60),M=v%60;return H+'h'+(M?String(M).padStart(2,'0'):'')}
+function nextMeal(P){const n=new Date(),now=n.getHours()*60+n.getMinutes();let best=null;P.refeicoes.forEach(r=>{const v=hMin(r.h);if(v!=null&&v+30>=now&&(!best||v<hMin(best.h)))best=r});return best}
+function itemTxt(it){const a=ALIM[it.k]||{n:it.k};return{n:a.n,m:medidaTxt(it)}}
+function optResumo(o){return o.itens.map(it=>{const a=ALIM[it.k]||{n:it.k};return a.livre?a.n.toLowerCase():`${a.n.toLowerCase()} ${it.gramas} g`}).join(' · ')}
+function subsTxt(s){return[s].concat(s.por).map(x=>`${(ALIM[x.k]||{n:x.k}).n} ${x.gramas} g`).join(' ↔ ')}
+function dietWa(msg){const n=coachWa();return n?waURL(n,`Olá, Tel! Aqui é ${firstName(ME.name||'')}. Gostaria de uma alteração no meu plano alimentar.${msg?'\n'+msg:''}`):''}
+function dietBanner(){const P=myDiet();if(!P)return'';const r=nextMeal(P);
+  return`<div class="card tap" data-act="go" data-v="alim" style="display:flex;gap:12px;align-items:center"><div style="font-size:26px">${r?DIET_IC[r.k]||'🍽':'🍽'}</div><div class="sp"><div class="av-eyb" style="margin:0">Alimentação</div><b>${r?`${esc(r.n)} · ${hTxt(r.h)}`:'Seu plano alimentar'}</b><div class="mu sm">${r?`${r.meta.kcal} kcal${r.opcoes.length>1?' · '+r.opcoes.length+' opções':''}`:`${P.metas.kcal.toLocaleString('pt-BR')} kcal por dia`}</div></div><span class="mu">›</span></div>`}
+function dreqCard(){return S.dreq&&!S.dreq.done?`<div class="card" style="border-left:4px solid var(--warn)"><div class="sm">📝 <b>Pedido de alteração enviado</b> em ${new Date(S.dreq.at).toLocaleDateString('pt-BR')}.${S.dreq.msg?`<div class="mu xs" style="margin-top:4px">"${esc(S.dreq.msg)}"</div>`:''}</div><button class="lnk" data-act="dreqCancel" style="margin-top:6px">Cancelar pedido</button></div>`:''}
+VIEWS.alim=function(){const P=myDiet(),d=S.lib.diet;let h=hdr('Alimentação',P?`Recomendação do Tel · ${esc((DIETA_OBJ[P.objetivo]||{n:''}).n.toLowerCase())} · desde ${new Date(d.pubAt).toLocaleDateString('pt-BR')}`:'',true);
+  if(!P)return h+'<div class="empty">O Tel ainda não publicou seu plano alimentar.</div>'+`<button class="btn block" data-act="dreqNew">📝 Pedir um plano alimentar ao Tel</button>`+dreqCard();
+  const M=P.metas,nx=nextMeal(P);
+  h+=`<div class="card"><div class="av-eyb">Meta de hoje</div><b style="font-size:30px">${M.kcal.toLocaleString('pt-BR')} kcal</b>
+    <div class="avt av3" style="margin-top:8px">${avTile('Carboidrato',M.c+' g','')}${avTile('Proteína',M.p+' g','')}${avTile('Gordura',M.g+' g','')}</div>
+    <div class="mu sm" style="margin-top:8px">💧 Água: ${fz(P.agua)} L por dia</div></div>`;
+  h+=`<div class="card" style="padding:4px 14px">${P.refeicoes.map((r,i)=>`<div class="li tap" data-act="go" data-v="alimref" data-k="${r.k}" style="${i?'':'border-top:none'}"><span style="font-size:22px;width:30px">${DIET_IC[r.k]||'🍽'}</span><div class="t"><b>${esc(r.n)} <span class="mu sm">· ${nx&&nx.k===r.k?'<span style="color:var(--ac)">próxima</span>':hTxt(r.h)}</span></b><span class="mu sm">${r.opcoes.length>1?r.opcoes.length+' opções':esc(r.opcoes[0]?r.opcoes[0].nome:'')} · ${r.meta.kcal} kcal</span></div><span class="mu">›</span></div>`).join('')}</div>`;
+  h+=`<div class="grid2" style="margin-top:12px"><button class="btn" data-act="go" data-v="alimsubs">Substituições</button><button class="btn" data-act="dietPdf">Baixar PDF</button></div>
+    ${S.dreq&&!S.dreq.done?'':`<button class="btn pri block" data-act="dreqNew" style="margin-top:8px">📝 Pedir alteração ao Tel</button>`}${dreqCard()}
+    <p class="mu xs" style="margin:10px 2px">Recomendação geral com base nas suas metas de calorias e macros. Não substitui o acompanhamento de um nutricionista. Valores: ${esc(TACO_FONTE)}.</p>`;
+  return h};
+let AOPEN=0,AOPK=null;
+VIEWS.alimref=function({k}){const P=myDiet();if(AOPK!==k){AOPK=k;AOPEN=0}if(!P)return hdr('Refeição','',true)+'<div class="empty">Sem plano publicado.</div>';const r=P.refeicoes.find(x=>x.k===k)||P.refeicoes[0],m=r.meta;
+  let h=hdr(r.n,`${hTxt(r.h)} · ${m.kcal} kcal · C ${m.c} g · P ${m.p} g · G ${m.g} g`,true);
+  if(r.opcoes.length>1)h+=`<p class="mu sm" style="margin:0 2px 8px">${r.opcoes.length} opções com as mesmas calorias e macros. Escolha uma.</p>`;
+  h+=r.opcoes.map((o,i)=>{const open=r.opcoes.length===1||i===AOPEN;return`<div class="card${open?'':' tap'}" ${open?'':`data-act="aOpen" data-i="${i}"`}><div class="row"><b class="sp">${r.opcoes.length>1?`Opção ${i+1} · `:''}${esc(o.nome)}</b>${open?'':'<span class="mu">›</span>'}</div>
+    ${open?o.itens.map(it=>{const t=itemTxt(it);return`<div style="padding:8px 0;border-top:1px solid var(--s3)"><div class="sm">${esc(t.n)}</div><div class="mu xs">${esc(t.m)}</div></div>`}).join('')+`<div class="mu xs" style="margin-top:6px">${o.total.kcal} kcal · C ${o.total.c} g · P ${o.total.p} g · G ${o.total.g} g</div>`:`<div class="mu xs" style="margin-top:4px">${esc(optResumo(o))}</div>`}</div>`}).join('');
+  if(r.subs&&r.subs.length)h+=`<h3>Pode trocar por</h3><div class="card sm">${r.subs.map(s=>`<div style="padding:4px 0">${esc(subsTxt(s))}</div>`).join('')}</div>`;
+  h+=`<div class="grid2" style="margin-top:12px"><button class="btn" data-act="back">Voltar</button><button class="btn pri" data-act="dreqNew" data-k="${r.k}" ${S.dreq&&!S.dreq.done?'disabled':''}>📝 Pedir alteração</button></div>`;
+  return h};
+VIEWS.alimsubs=function(){const P=myDiet();let h=hdr('Substituições','Trocas com as mesmas calorias aproximadas',true);if(!P)return h+'<div class="empty">Sem plano publicado.</div>';
+  return h+P.refeicoes.filter(r=>r.subs&&r.subs.length).map(r=>`<h3>${DIET_IC[r.k]||''} ${esc(r.n)}</h3><div class="card sm">${r.subs.map(s=>`<div style="padding:4px 0">${esc(subsTxt(s))}</div>`).join('')}</div>`).join('')}
+function dietPrintHtml(P,nome){const M=P.metas;
+  return`<h1>Plano alimentar${nome?' · '+esc(nome):''}</h1><p>Recomendação do Tel Morais · ${esc((DIETA_OBJ[P.objetivo]||{n:''}).n)} · ${new Date(S.lib.diet.pubAt).toLocaleDateString('pt-BR')}</p>
+  <p><b>Meta diária: ${M.kcal} kcal</b> · Carboidrato ${M.c} g · Proteína ${M.p} g · Gordura ${M.g} g · Água ${fz(P.agua)} L</p>
+  ${P.refeicoes.map(r=>`<h2>${esc(r.n)} · ${hTxt(r.h)} · ${r.meta.kcal} kcal</h2>${r.opcoes.map((o,i)=>`<h3>${r.opcoes.length>1?`Opção ${i+1} · `:''}${esc(o.nome)}</h3><ul>${o.itens.map(it=>{const t=itemTxt(it);return`<li>${esc(t.n)} — ${esc(t.m)}</li>`}).join('')}</ul>`).join('')}${r.subs&&r.subs.length?`<p class="subs">Pode trocar: ${r.subs.map(s=>esc(subsTxt(s))).join('; ')}</p>`:''}`).join('')}
+  <p class="disc">Recomendação geral com base nas metas de calorias e macros; não substitui o acompanhamento de um nutricionista. Valores: ${esc(TACO_FONTE)}.</p>`}
+Object.assign(ACT,{
+  aOpen:d=>{AOPEN=+d.i;render()},
+  dietPdf:()=>{const P=myDiet();if(!P)return;let el=document.getElementById('printArea');if(!el){el=document.createElement('div');el.id='printArea';document.body.appendChild(el)}
+    el.innerHTML=dietPrintHtml(P,ME&&ME.name);document.body.classList.add('printing');const fim=()=>{document.body.classList.remove('printing');el.innerHTML=''};
+    toast('Escolha "Salvar como PDF" na janela de impressão');setTimeout(()=>{try{window.print()}catch(e){}setTimeout(fim,800)},300)},
+  dreqNew:d=>{if(!MYBILL)loadMyBill();const r=d.k&&myDiet()?myDiet().refeicoes.find(x=>x.k===d.k):null;
+    modal(myDiet()?'Pedir alteração ao Tel':'Pedir plano alimentar',`<p class="sm" style="margin-top:0">O pedido aparece para o Tel no app${coachWa()?' e abre uma conversa com ele no WhatsApp':''}.</p><label class="f"><span>O que você gostaria de mudar?</span><textarea id="dreqMsg" rows="3" maxlength="300" placeholder="Ex.: não gosto de tilápia, prefiro jantar mais cedo"></textarea></label>`,
+      [{label:'Cancelar'},{label:'Enviar pedido',cls:'pri',fn:()=>{let msg=($('#dreqMsg')&&$('#dreqMsg').value||'').trim().slice(0,300);if(r)msg=(r.n+': '+msg).slice(0,300);S.dreq={id:uid36('d'),at:Date.now(),msg};save();render();toast('Pedido enviado ao Tel');const u=dietWa(msg);if(u)window.open(u,'_blank','noopener')}}])},
+  dreqCancel:()=>confirmBox('Cancelar pedido','Cancelar o pedido de alteração no plano alimentar?','Cancelar pedido',()=>{S.dreq=null;save();render()},true)
+});
