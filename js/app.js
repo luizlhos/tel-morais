@@ -1,4 +1,4 @@
-const APP_VERSION='2.5.0';
+const APP_VERSION='2.6.0';
 const EXDIR='exercicios/';
 /* ---------- tema (preferência do aparelho) ---------- */
 const THEME_KEY='telm.theme';const MQ_DARK=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
@@ -926,7 +926,7 @@ function anamEvalForm(a,k,uid,c){const E=ANM_EDIT?a.evals.find(x=>x.id===ANM_EDI
 let ANM_EDIT=null;
 Object.assign(ACT,{
   anOpen:d=>{ANM_TAB='res';ANM_EDIT=null;go('anam',{})},
-  dietOpenUser:async d=>{const u=USERS.list.find(x=>x.id===d.id);if(!u)return;if(await loadAnam(u))go('dieta',{uid:u.id})},
+  dietOpenUser:async d=>{const u=USERS&&USERS.list&&USERS.list.find(x=>x.id===d.id);if(!u)return;DLIST=null;if(await loadAnam(u))go('dieta',{uid:u.id})},
   anOpenUser:d=>{const u=USERS.list.find(x=>x.id===d.id);ANM_EDIT=null;openAnamFor(u)},
   anTab:d=>{ANM_TAB=d.t;ANM_EDIT=null;render();scrollTo(0,0)},
   anEdit:d=>{ANM_TAB='aval';ANM_EDIT=d.id;render();scrollTo(0,0)},
@@ -1031,6 +1031,8 @@ function initials(n){return String(n||'?').trim().split(/\s+/).filter(Boolean).m
 VIEWS.ajustes=function(){const st=S.settings,p=myActive(),isM=ME.role==='master';
   let h=`<div class="hd prof"><span class="av">${esc(initials(ME.name))}</span><div class="sp" style="min-width:0"><h1>${esc(ME.name||'Ajustes')}</h1><div class="mu sm">${isM?'Master · ':''}versão ${APP_VERSION}</div></div>${syncBadge()}</div>`;
   const lib=S.lib,act=planById(lib.activeId,lib),others=lib.plans.filter(x=>x!==act),fin=others.filter(x=>S.prog[x.id]&&S.prog[x.id].week>weeksOf(x)).length;
+  {const av=window.AV&&AV.mine?AV.mine():null,q=av&&av.list&&av.list[0],ev=(anamOf(S.lib).evals||[]).slice().sort((x,y)=>(y.date||'').localeCompare(x.date||''))[0];
+    h+=`<div class="sec">Avaliação</div><div class="card alist">${aitem('go',isM?'Avaliações':'Minha avaliação',isM?'Suas medidas e as avaliações dos alunos':[ev?'Medição em '+isoToBR(ev.date):'Sem medição',q?'questionário respondido':'questionário pendente'].join(' · '),'data-v="avaliacao"')}</div>`}
   h+=`<div class="sec">Meu treino</div><div class="card alist">${aitem('go','Planos de treino',`${act?'1 em andamento':'nenhum em andamento'} · ${others.length-fin} próximo${others.length-fin===1?'':'s'} · ${fin} finalizado${fin===1?'':'s'}`,'data-v="planos"')}${aitem('go','Montar um treino novo','3 perguntas e o app monta para você','data-v="montar"')}${p?aitem('go','Ajustar semana do plano',`${esc(p.name)} · semana ${Math.min(progOf(p).week,weeksOf(p))} de ${weeksOf(p)}`,'data-v="ajsemana"'):''}${aitem('go','Perfil corporal','Sexo, nascimento, altura e peso · usados nas calorias','data-v="meusdados"')}${metOn(S&&S.lib)||isM?aitem('go','Métodos de treino','Drop set, rest-pause, cluster e outros','data-v="metodos"'):''}</div>`;
   if(!isM)h+=myFinCard()+myInfoCard();
   {const tp=themePref();h+=`<div class="sec">Aparência e uso</div><div class="card"><b>Tema</b><div class="seg" style="margin-top:8px">${[['light','Claro'],['dark','Escuro'],['auto','Automático']].map(([k,l])=>`<button class="${tp===k?'on':''}" data-act="setTheme" data-t="${k}">${l}</button>`).join('')}</div><p class="mu xs" style="margin:6px 2px 0">Automático segue o modo claro/escuro do celular. Vale só para este aparelho.</p>
@@ -1162,12 +1164,12 @@ function avTile(l,v,s){return`<div><span>${l}</span><b>${v}</b>${s?`<span>${s}</
 function avDelta(a,b,inv,u){if(a==null||b==null)return'';const d=r1(a-b);if(!d)return'<span class="mu">igual</span>';const good=inv?d<0:d>0;return`<b style="font-size:12px;color:${good?'var(--ok)':'var(--warn)'}">${d>0?'+':'−'}${fz(Math.abs(d))}${u||''}</b>`}
 const IC_Q='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 10h6M9 14h6M9 18h3"/></svg>',IC_F='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/></svg>';
 VIEWS.avaliacao=function(){const isM=ME.role==='master';
-  let h=hdr('Avaliação',isM&&AVT==='rec'?'Avaliações de todos os alunos':'Medidas, composição corporal e questionário',false,syncBadge());
+  let h=hdr('Avaliação',isM&&AVT==='rec'?'Avaliações de todos os alunos':'Medidas, composição corporal e questionário',!!topV(),syncBadge());
   if(isM)h+=`<div class="seg" style="margin-bottom:10px">${[['mine','Minhas'],['rec','Alunos']].map(([k,l])=>`<button class="${AVT===k?'on':''}" data-act="avTab" data-t="${k}">${l}</button>`).join('')}</div>`;
   if(isM&&AVT==='rec')return h+(window.AV&&VIEWS.avall?VIEWS.avall({embed:true}):'');
   const c=anamCtx(),a=anamOf(S.lib),k=anamBasics(c,a),ev=(a.evals||[]).slice().sort((x,y)=>(y.date||'').localeCompare(x.date||'')),L=ev[0],P=ev[1];
   const m=window.AV&&AV.mine?AV.mine():null,Q=m&&m.list&&m.list[0];
-  if(!L&&!Q&&m&&!m.loading)h+=`<div class="card hero"><h2>Comece pela sua avaliação</h2><p class="mu sm">Medidas, objetivo, saúde e hábitos. São 4 etapas e leva uns 5 minutos. O resultado aparece aqui.</p><button class="btn pri block big" data-act="avNew">Fazer minha avaliação</button></div>`;
+  if(!L&&!Q&&m&&!m.loading)h+=`<div class="card hero"><h2>Comece pela sua avaliação</h2><p class="mu sm">Medidas, objetivo, saúde e hábitos. São 5 etapas e leva uns 8 minutos. O resultado aparece aqui.</p><button class="btn pri block big" data-act="avNew">Fazer minha avaliação</button></div>`;
   if(L){const R=evalCalc(L,k),RP=P?evalCalc(P,k):null,W=L.circ&&+L.circ.waist||null,WP=P&&P.circ&&+P.circ.waist||null;
     h+=`<div class="card"><div class="row" style="align-items:flex-end;margin-bottom:8px"><div class="sp"><div class="av-eyb" style="margin:0">Última avaliação física</div><b style="font-size:17px">${pISO(L.date).toLocaleDateString('pt-BR',{day:'numeric',month:'long'})}</b></div>${P?`<span class="mu xs">vs ${isoToBR(P.date).slice(0,5)}</span>`:''}</div>
       <div class="avt">${avTile('Peso',R.kg?fz(R.kg)+' kg':'—',RP?avDelta(R.kg,RP.kg,true,' kg'):'')}${avTile('% de gordura',R.bf?fz(R.bf.v)+' %':'—',RP&&RP.bf&&R.bf?avDelta(R.bf.v,RP.bf.v,true):'')}${avTile('Massa magra',R.lean!=null?fz(R.lean)+' kg':'—',RP&&RP.lean!=null&&R.lean!=null?avDelta(R.lean,RP.lean,false,' kg'):'')}${avTile('Cintura',W?fz(W)+' cm':'—',W&&WP?avDelta(W,WP,true,' cm'):'')}</div>
@@ -1550,7 +1552,7 @@ function createdModal(c){const cred=`<div class="card" style="user-select:all">L
   modal('Aluno criado ✓',`<p>Dados de acesso de <b>${esc(c.name)}</b>:</p>${cred}${c.phone?'<p class="mu sm">Use os botões abaixo para enviar pelo WhatsApp.</p>':'<p class="mu sm">Sem WhatsApp cadastrado: copie e envie os dados acima.</p>'}${c.warn?`<p class="sm" style="color:var(--bad)">A conta foi criada, mas os dados do aluno não foram salvos (${esc(c.warn)}). Abra a ficha e use "Preencher dados".</p>`:''}`,btns)}
 function openWa(url){if(!/^https:\/\/wa\.me\//.test(url))return;window.open(url,'_blank','noopener')}
 /* aluno: cadastro no Perfil (somente leitura) */
-function cadHook(){if(WANT_AV&&ME.role!=='master'){WANT_AV=false;V.tab='avaliacao';V.stack=[]}
+function cadHook(){if(WANT_AV&&ME.role!=='master'){WANT_AV=false;V.tab='perfil';V.stack=[{view:'avaliacao',params:{}}]}
   if(ME.role==='master'||!navigator.onLine||(MYINFO&&MYINFO.uid===ME.id))return;
   MYINFO={uid:ME.id,loading:true};SB.from('client_info').select('*').eq('user_id',ME.id).maybeSingle().then(({data,error})=>{if(!ME||MYINFO.uid!==ME.id)return;MYINFO={uid:ME.id,data:error?null:data};
     const i=MYINFO.data;if(i&&S){const B=bodyOf();let ch=false;if(!B.sex&&(i.gender==='M'||i.gender==='F')){B.sex=i.gender;ch=true}if(!B.birth&&i.birth_date){B.birth=i.birth_date;ch=true}if(ch)save()}
@@ -2169,10 +2171,10 @@ function optResumo(o){return o.itens.map(it=>{const a=ALIM[it.k]||{n:it.k};retur
 function subsTxt(s){return[s].concat(s.por).map(x=>`${(ALIM[x.k]||{n:x.k}).n} ${x.gramas} g`).join(' ↔ ')}
 function dietWa(msg){const n=coachWa();return n?waURL(n,`Olá, Tel! Aqui é ${firstName(ME.name||'')}. Gostaria de uma alteração no meu plano alimentar.${msg?'\n'+msg:''}`):''}
 function dietBanner(){const P=myDiet();if(!P)return'';const r=nextMeal(P);
-  return`<div class="card tap" data-act="go" data-v="alim" style="display:flex;gap:12px;align-items:center"><div style="font-size:26px">${r?DIET_IC[r.k]||'🍽':'🍽'}</div><div class="sp"><div class="av-eyb" style="margin:0">Alimentação</div><b>${r?`${esc(r.n)} · ${hTxt(r.h)}`:'Seu plano alimentar'}</b><div class="mu sm">${r?`${r.meta.kcal} kcal${r.opcoes.length>1?' · '+r.opcoes.length+' opções':''}`:`${P.metas.kcal.toLocaleString('pt-BR')} kcal por dia`}</div></div><span class="mu">›</span></div>`}
+  return`<div class="card tap" data-act="tab" data-t="alim" style="display:flex;gap:12px;align-items:center"><div style="font-size:26px">${r?DIET_IC[r.k]||'🍽':'🍽'}</div><div class="sp"><div class="av-eyb" style="margin:0">Alimentação</div><b>${r?`${esc(r.n)} · ${hTxt(r.h)}`:'Seu plano alimentar'}</b><div class="mu sm">${r?`${r.meta.kcal} kcal${r.opcoes.length>1?' · '+r.opcoes.length+' opções':''}`:`${P.metas.kcal.toLocaleString('pt-BR')} kcal por dia`}</div></div><span class="mu">›</span></div>`}
 function dreqCard(){return S.dreq&&!S.dreq.done?`<div class="card" style="border-left:4px solid var(--warn)"><div class="sm">📝 <b>Pedido de alteração enviado</b> em ${new Date(S.dreq.at).toLocaleDateString('pt-BR')}.${S.dreq.msg?`<div class="mu xs" style="margin-top:4px">"${esc(S.dreq.msg)}"</div>`:''}</div><button class="lnk" data-act="dreqCancel" style="margin-top:6px">Cancelar pedido</button></div>`:''}
-VIEWS.alim=function(){const P=myDiet(),d=S.lib.diet;let h=hdr('Alimentação',P?`Recomendação do Tel · ${esc((DIETA_OBJ[P.objetivo]||{n:''}).n.toLowerCase())} · desde ${new Date(d.pubAt).toLocaleDateString('pt-BR')}`:'',true);
-  if(!P)return h+'<div class="empty">O Tel ainda não publicou seu plano alimentar.</div>'+`<button class="btn block" data-act="dreqNew">📝 Pedir um plano alimentar ao Tel</button>`+dreqCard();
+VIEWS.alim=function(){if(ME&&ME.role==='master'&&!topV())return dietMaster();const P=myDiet(),d=S.lib.diet;let h=hdr('Alimentação',P?`Recomendação do Tel · ${esc((DIETA_OBJ[P.objetivo]||{n:''}).n.toLowerCase())} · desde ${new Date(d.pubAt).toLocaleDateString('pt-BR')}`:'Seu plano alimentar',!!topV(),topV()?'':syncBadge());
+  if(!P)return h+`<div class="card hero"><h2>Seu plano alimentar aparece aqui</h2><p class="mu sm">O Tel monta o plano a partir do seu questionário e da avaliação física: meta de calorias, 6 refeições e opções de cardápio.</p>${S.dreq&&!S.dreq.done?'':'<button class="btn pri block" data-act="dreqNew">📝 Pedir um plano alimentar ao Tel</button>'}</div>`+dreqCard();
   const M=P.metas,nx=nextMeal(P);
   h+=`<div class="card"><div class="av-eyb">Meta de hoje</div><b style="font-size:30px">${M.kcal.toLocaleString('pt-BR')} kcal</b>
     <div class="avt av3" style="margin-top:8px">${avTile('Carboidrato',M.c+' g','')}${avTile('Proteína',M.p+' g','')}${avTile('Gordura',M.g+' g','')}</div>
@@ -2208,3 +2210,24 @@ Object.assign(ACT,{
       [{label:'Cancelar'},{label:'Enviar pedido',cls:'pri',fn:()=>{let msg=($('#dreqMsg')&&$('#dreqMsg').value||'').trim().slice(0,300);if(r)msg=(r.n+': '+msg).slice(0,300);S.dreq={id:uid36('d'),at:Date.now(),msg};save();render();toast('Pedido enviado ao Tel');const u=dietWa(msg);if(u)window.open(u,'_blank','noopener')}}])},
   dreqCancel:()=>confirmBox('Cancelar pedido','Cancelar o pedido de alteração no plano alimentar?','Cancelar pedido',()=>{S.dreq=null;save();render()},true)
 });
+
+/* aba Alimentação do master: planos alimentares dos alunos */
+let DLIST=null;
+async function loadDList(){if(!navigator.onLine){DLIST={err:'Sem internet'};render();return}DLIST={loading:true};
+  try{if(!USERS||!USERS.list)await loadUsers();const{data,error}=await SB.from('user_docs').select('user_id,diet:program->diet,dreq:state->dreq');if(error)throw error;
+    const m={};(data||[]).forEach(x=>m[x.user_id]=x);DLIST={at:Date.now(),rows:((USERS&&USERS.list)||[]).filter(u=>u.role!=='master').map(u=>{const x=m[u.id]||{},d=x.diet||null,D=d&&d.draft,rq=x.dreq&&x.dreq.id&&!(S.reqDone&&S.reqDone[x.dreq.id])?x.dreq:null;
+      const st=!D?'sem':!d.pub?'rasc':d.pubAt<(D.editado||D.criado)?'mud':'pub';return{u,st,rq,kcal:D&&D.metas&&D.metas.kcal,pubAt:d&&d.pubAt}})}}
+  catch(e){DLIST={err:friendlyErr(e)}}if(V.tab==='alim'&&!V.stack.length)render()}
+const DST={sem:['Sem plano','var(--mu,#888)'],rasc:['Rascunho','var(--warn)'],mud:['Mudanças não publicadas','var(--warn)'],pub:['Publicado','var(--ok)']};
+let DLQ='';
+function dietMaster(){let h=hdr('Alimentação','Planos alimentares dos alunos',false,'<button class="btn smb" data-act="dlReload">↻</button>');
+  if(!DLIST){loadDList();return h+'<div class="empty">Carregando…</div>'}if(DLIST.loading)return h+'<div class="empty">Carregando…</div>';if(DLIST.err)return h+`<div class="card" style="color:var(--bad)">${esc(DLIST.err)}</div>`;
+  const R=DLIST.rows.filter(r=>r.u.active!==false),rq=R.filter(r=>r.rq),cnt=k=>R.filter(r=>r.st===k).length;
+  h+=`<div class="stat"><div><b>${cnt('pub')}</b><span>publicados</span></div><div><b>${cnt('rasc')+cnt('mud')}</b><span>em revisão</span></div><div><b>${cnt('sem')}</b><span>sem plano</span></div></div>`;
+  if(rq.length)h+=`<h3>Pedidos de alteração (${rq.length})</h3><div class="card" style="padding:4px 14px">${rq.map(r=>`<div class="li tap" data-act="dietOpenUser" data-id="${r.u.id}"><span style="font-size:20px">🍽</span><div class="t"><b>${esc(r.u.name)}</b><span class="mu sm">${new Date(r.rq.at).toLocaleDateString('pt-BR')}${r.rq.msg?' · '+esc(r.rq.msg):''}</span></div><span class="mu">›</span></div>`).join('')}</div>`;
+  const ord={rasc:0,mud:1,sem:2,pub:3},q=normTxt(DLQ),L=R.filter(r=>!q||normTxt(r.u.name).includes(q)).sort((a,b)=>ord[a.st]-ord[b.st]||a.u.name.localeCompare(b.u.name));
+  h+=`<h3>Alunos</h3><label class="srch" style="margin-bottom:8px"><span class="sr">Buscar aluno</span><input data-dlq="1" placeholder="Buscar aluno" value="${esc(DLQ)}"></label><div class="card" style="padding:4px 14px">${L.map(r=>`<div class="li tap" data-act="dietOpenUser" data-id="${r.u.id}"><div class="t"><b>${esc(r.u.name)}</b><span class="sm" style="color:${DST[r.st][1]}">${DST[r.st][0]}${r.kcal?` <span class="mu">· ${r.kcal.toLocaleString('pt-BR')} kcal</span>`:''}</span></div><span class="mu">›</span></div>`).join('')||'<div class="mu sm" style="padding:10px 0">Nenhum aluno.</div>'}</div>`;
+  if(myDiet())h+=`<button class="btn block" data-act="go" data-v="alim" style="margin-top:10px">Ver o meu plano alimentar</button>`;
+  return h}
+Object.assign(ACT,{dlReload:()=>{DLIST=null;render()}});
+document.addEventListener('input',ev=>{if(ev.target.dataset.dlq){DLQ=ev.target.value;clearTimeout(DLIST&&DLIST._t);const pos=ev.target.selectionStart;setTimeout(()=>{render();const b=document.querySelector('[data-dlq]');if(b){b.focus();try{b.setSelectionRange(pos,pos)}catch(e){}}},400)}});
