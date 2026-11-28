@@ -332,3 +332,8 @@ html[data-theme=light] .av:not(.sm){color:#fff}
 .wkt button.late{border:1.5px solid var(--warn)}.wkt button.late span{color:var(--warn);font-weight:700}
 .wkt button.skip span{color:var(--mu);text-decoration:line-through}
 .card.late{border-left:4px solid var(--warn)}
+.avt>div>span:last-child{font-size:12px}
+.card.avc{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;font:inherit;color:inherit;cursor:pointer;margin:0}
+.card.avc svg{color:var(--ac2,var(--ac))}.card.avc b{font-size:15px}.card.avc .lnk{padding-top:2px}
+.av-eyb{font-size:12px;font-weight:800;letter-spacing:.06em;color:var(--ac2,var(--ac));text-transform:uppercase}
+.avt.av3{grid-template-columns:repeat(3,minmax(0,1fr))}.avt.av3 b{font-size:18px}

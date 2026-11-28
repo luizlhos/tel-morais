@@ -1,4 +1,4 @@
-const APP_VERSION='2.0.0';
+const APP_VERSION='2.1.0';
 const EXDIR='exercicios/';
 /* ---------- tema (preferência do aparelho) ---------- */
 const THEME_KEY='telm.theme';const MQ_DARK=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
@@ -854,32 +854,53 @@ function dl(a,b,inv){if(a==null||b==null)return'';const d=r1(a-b);if(!d)return'<
 const fz=v=>v==null?'—':String(v).replace('.',',');
 VIEWS.anam=function({uid}){const c=anamCtx(uid);if(!c)return hdr('Anamnese','',true)+'<div class="empty">Carregando…</div>';const a=anamOf(c.lib),k=anamBasics(c,a);
   if(ME.role!=='master')ANM_TAB='res';let h=hdr('Avaliação física',c.self?'Medidas e composição corporal':'de '+esc(c.name),true);
-  h+=ME.role!=='master'?'':`<div class="seg">${[['res','Resultados'],['aval','Nova medição'],['saude','Saúde (anamnese)']].map(([t,l])=>`<button class="${ANM_TAB===t?'on':''}" data-act="anTab" data-t="${t}" data-uid="${uid||''}">${l}</button>`).join('')}</div>`;
-  if(parqAlert(a.health))h+=`<div class="sug down" style="margin:10px 0 0">⚠️ Há resposta <b>"Sim"</b> no questionário de saúde. Recomenda-se avaliação médica antes de aumentar a intensidade dos treinos.</div>`;
+  h+=ME.role!=='master'?'':`<div class="seg">${[['res','Resultados'],['aval','Nova medição'],['saude','Saúde']].map(([t,l])=>`<button class="${ANM_TAB===t?'on':''}" data-act="anTab" data-t="${t}" data-uid="${uid||''}">${l}</button>`).join('')}</div>`;
+  const AQ=anamQ(c);if(parqAlert(a.health)||(AQ&&(AQ.answers&&AQ.answers.parq||[]).some(x=>x===true)))h+=`<div class="sug down" style="margin:10px 0 0">⚠️ Há resposta <b>"Sim"</b> no questionário de saúde. Recomenda-se avaliação médica antes de aumentar a intensidade dos treinos.</div>`;
   const hasH=k.height||a.evals.some(x=>x.height);const miss=[!k.sex&&'sexo',!k.birth&&'data de nascimento',!hasH&&'altura'].filter(Boolean);
-  if(ANM_TAB==='saude')return h+anamHealthForm(a,k,uid);
+  if(ANM_TAB==='saude')return h+anamSaude(a,k,uid,c);
   if(ANM_TAB==='aval')return h+anamEvalForm(a,k,uid,c);
   const ev=a.evals.slice().sort((x,y)=>x.date<y.date?1:-1);
   if(miss.length)h+=`<div class="card sm mu">Para todos os cálculos falta: <b>${miss.join(', ')}</b>. Preencha na aba <b>Saúde</b>${!hasH?' (a altura vai na avaliação)':''}.</div>`;
   if(!ev.length)return h+(ME.role==='master'?`<div class="empty">Nenhuma medição ainda.<div style="height:10px"></div><button class="btn pri" data-act="anTab" data-t="aval" data-uid="${uid||''}">+ Nova medição</button></div>`:`<div class="empty">Nenhuma avaliação física ainda. Seu treinador registra aqui suas medidas.</div>`);
-  const E=ev[0],R=evalCalc(E,k),P=ev[1]?evalCalc(ev[1],k):null;
-  h+=`<h3>Avaliação de ${isoToBR(E.date)}${P?` <span class="mu xs" style="text-transform:none;letter-spacing:0">vs ${isoToBR(ev[1].date)}</span>`:''}</h3><div class="card" style="padding:6px 14px">`;
-  h+=kv('Peso',R.kg?fz(R.kg)+' kg'+(P?dl(R.kg,P.kg,true):''):'—');
-  if(R.imc)h+=kv('IMC',fz(R.imc.v)+(P&&P.imc?dl(R.imc.v,P.imc.v,true):''),R.imc.txt,R.imc.c);
-  if(R.bf)h+=kv('% de gordura',fz(R.bf.v)+' %'+(P&&P.bf?dl(R.bf.v,P.bf.v,true):''),(R.bfc?R.bfc.txt+' · ':'')+R.bf.method,R.bfc?R.bfc.c:'');
-  if(R.fat!=null)h+=kv('Massa gorda',fz(R.fat)+' kg'+(P&&P.fat!=null?dl(R.fat,P.fat,true):''))+kv('Massa magra',fz(R.lean)+' kg'+(P&&P.lean!=null?dl(R.lean,P.lean):''));
-  if(R.rcq)h+=kv('Relação cintura/quadril',fz(R.rcq.v),R.rcq.txt+` (limite ${fz(R.rcq.lim)})`,R.rcq.c);
-  if(R.rce)h+=kv('Relação cintura/altura',fz(R.rce.v),R.rce.txt,R.rce.c);
-  if(!R.bf)h+=`<div class="mu xs" style="padding:8px 0">% de gordura: informe as dobras (adipômetro) ou pescoço + ${k.sex==='F'?'cintura + quadril':'abdômen'} (fita).</div>`;
-  h+=`</div>`;
+  const E=ev[0],R=evalCalc(E,k),PE=ev[1],P=PE?evalCalc(PE,k):null,isM=ME.role==='master';
+  const t=(l,v,d,sub)=>avTile(l,v,d||sub||'');
+  h+=`<div class="card" style="margin-top:10px"><div class="row" style="margin-bottom:8px"><b class="sp" style="font-size:16px">${isoToBR(E.date)}</b>${PE?`<span class="mu xs">comparando com ${isoToBR(PE.date).slice(0,5)}</span>`:''}</div>
+    <div class="avt av3">${t('Peso',R.kg?fz(R.kg):'—',P?avDelta(R.kg,P.kg,true,' kg'):'','kg')}${t('% gordura',R.bf?fz(R.bf.v):'—',P&&P.bf&&R.bf?avDelta(R.bf.v,P.bf.v,true):'',R.bfc?R.bfc.txt:'')}${t('IMC',R.imc?fz(R.imc.v):'—','',R.imc?`<span style="color:${clr(R.imc.c)}">${R.imc.txt}</span>`:'')}${t('M. gorda',R.fat!=null?fz(R.fat):'—',P&&P.fat!=null&&R.fat!=null?avDelta(R.fat,P.fat,true,' kg'):'','kg')}${t('M. magra',R.lean!=null?fz(R.lean):'—',P&&P.lean!=null&&R.lean!=null?avDelta(R.lean,P.lean,false,' kg'):'','kg')}${t(R.rcq?'Cint./quadril':'Cint./altura',R.rcq?fz(R.rcq.v):R.rce?fz(R.rce.v):'—','',R.rcq?`<span style="color:${clr(R.rcq.c)}">${R.rcq.txt}</span>`:R.rce?`<span style="color:${clr(R.rce.c)}">${R.rce.txt}</span>`:'')}</div>
+    <div class="mu xs" style="margin-top:8px">${R.bf?'% de gordura: '+R.bf.method:`% de gordura: informe as dobras (adipômetro) ou pescoço + ${k.sex==='F'?'cintura + quadril':'abdômen'} (fita).`}</div></div>`;
+  const sec=(t,sm,body)=>`<details class="av-sum"><summary><span><b>${t}</b><small>${sm}</small></span><i aria-hidden="true">›</i></summary>${body}</details>`;
+  let acc='';
   const cm=CIRC.filter(([x])=>E.circ&&E.circ[x]);
-  if(cm.length)h+=`<h3>Circunferências (cm)</h3><div class="card" style="padding:6px 14px">${cm.map(([x,l])=>kv(l,fz(E.circ[x])+(ev[1]&&ev[1].circ&&ev[1].circ[x]?dl(+E.circ[x],+ev[1].circ[x],x==='waist'||x==='abdomen'||x==='hip'):''))).join('')}</div>`;
-  if(R.zones)h+=`<h3>Frequência cardíaca</h3><div class="card" style="padding:6px 14px">${kv('FC máxima estimada',R.fcmax+' bpm','Fórmula de Tanaka (208 − 0,7 × idade)','ok')}${kv('FC de repouso',R.rhr?R.rhr+' bpm':'—',R.rhr?'Zonas pela FC de reserva (Karvonen)':'Informe a FC de repouso para zonas mais precisas','ok')}
-    ${R.zones.map(([n,a,b])=>kv(n,`${a}–${b} bpm`)).join('')}<div class="mu xs" style="padding:8px 0">Use no campo "Zona / FC média" do cardio. Z2 é a zona de base aeróbica.</div></div>`;
-  h+=`<h3>Histórico de avaliações</h3><div class="card" style="padding:4px 14px">${ev.map(x=>{const r=evalCalc(x,k);return`<div class="row" style="padding:8px 0;border-top:1px solid var(--s3)"><span class="sp"><b>${isoToBR(x.date)}</b><div class="mu xs">${[r.kg&&fz(r.kg)+' kg',r.imc&&'IMC '+fz(r.imc.v),r.bf&&fz(r.bf.v)+'% G'].filter(Boolean).join(' · ')||'—'}${x.by==='master'?' · pelo administrador':''}</div></span><button class="btn ghost smb" data-act="anEdit" data-id="${x.id}" data-uid="${uid||''}">editar</button></div>`}).join('')}</div>
-    <p class="mu xs">Valores estimados por fórmulas de campo; servem para acompanhar a evolução e não substituem avaliação profissional.</p>`;
+  if(cm.length){const dw=E.circ.waist&&PE&&PE.circ&&PE.circ.waist?r1(+E.circ.waist-+PE.circ.waist):null;
+    acc+=sec('Circunferências',`${cm.length} medida${cm.length===1?'':'s'}${dw!=null?` · cintura ${dw>0?'+':dw<0?'−':''}${fz(Math.abs(dw))} cm`:''}`,cm.map(([x,l])=>kv(l,fz(E.circ[x])+' cm'+(PE&&PE.circ&&PE.circ[x]?dl(+E.circ[x],+PE.circ[x],x==='waist'||x==='abdomen'||x==='hip'):''))).join(''))}
+  const fo=FOLDS.filter(([x])=>E.folds&&E.folds[x]);
+  if(fo.length)acc+=sec('Dobras cutâneas',`${fo.length} dobra${fo.length===1?'':'s'}${R.bf&&R.bf.sum?' · soma '+fz(R.bf.sum)+' mm':''}`,fo.map(([x,l])=>kv(l,fz(E.folds[x])+' mm')).join(''));
+  if(R.zones)acc+=sec('Frequência cardíaca',`Máx. ${R.fcmax}${R.rhr?' · repouso '+R.rhr:''} · zonas de treino`,`${kv('FC máxima estimada',R.fcmax+' bpm','Fórmula de Tanaka (208 − 0,7 × idade)','ok')}${kv('FC de repouso',R.rhr?R.rhr+' bpm':'—',R.rhr?'Zonas pela FC de reserva (Karvonen)':'Informe a FC de repouso para zonas mais precisas','ok')}${R.zones.map(([n,a,b])=>kv(n,`${a}–${b} bpm`)).join('')}<div class="mu xs" style="padding:8px 0">Use no campo "Zona / FC média" do cardio. Z2 é a zona de base aeróbica.</div>`);
+  acc+=sec('Histórico',`${ev.length} medição${ev.length===1?'':'ões'}${ev.length>1?' desde '+isoToBR(ev[ev.length-1].date).slice(0,5):''}`,ev.map(x=>{const r=evalCalc(x,k);return`<div class="row" style="padding:8px 0;border-top:1px solid var(--s3)"><span class="sp"><b>${isoToBR(x.date)}</b><div class="mu xs">${[r.kg&&fz(r.kg)+' kg',r.imc&&'IMC '+fz(r.imc.v),r.bf&&fz(r.bf.v)+'% G'].filter(Boolean).join(' · ')||'—'}${x.by==='master'?' · pelo administrador':''}</div></span>${isM?`<button class="btn ghost smb" data-act="anEdit" data-id="${x.id}" data-uid="${uid||''}">editar</button>`:''}</div>`}).join(''));
+  h+=`<div class="card" style="padding:0 14px">${acc}</div>`;
+  if(isM){const u=!c.self&&USERS&&USERS.list&&USERS.list.find(x=>x.id===c.uid),ph=u&&u.info&&u.info.phone;
+    h+=`<div class="grid2"><button class="btn pri" data-act="anTab" data-t="aval" data-uid="${uid||''}">+ Nova medição</button>${ph?`<button class="btn" data-act="openWa" data-u="${esc(waURL(ph,msgEvalSum(c.name,E,R,P)))}">Enviar resumo</button>`:'<span></span>'}</div>${ph?'<p class="mu xs" style="margin:6px 2px 0">"Enviar resumo" abre o WhatsApp do aluno com os principais números.</p>':''}`}
+  h+=`<p class="mu xs">Valores estimados por fórmulas de campo; servem para acompanhar a evolução e não substituem avaliação profissional.</p>`;
   return h};
 function inp(id,l,v,ph,mode){return`<label class="f"><span>${l}</span><input id="${id}" inputmode="${mode||'decimal'}" value="${v??''}" placeholder="${ph||''}"></label>`}
+function anamQ(c){if(!window.AV)return null;const m=c.self?(AV.mine&&AV.mine()):(AV.byUser&&AV.byUser(c.uid));return m&&m.list&&m.list[0]||null}
+function msgEvalSum(name,E,R,P){const d=(a,b,u)=>a!=null&&b!=null&&r1(a-b)?` (${r1(a-b)>0?'+':'−'}${fz(Math.abs(r1(a-b)))}${u})`:'';const L=[];
+  if(R.kg)L.push(`Peso: ${fz(R.kg)} kg${P?d(R.kg,P.kg,' kg'):''}`);if(R.bf)L.push(`Gordura: ${fz(R.bf.v)} %${P&&P.bf?d(R.bf.v,P.bf.v,''):''}`);if(R.lean!=null)L.push(`Massa magra: ${fz(R.lean)} kg${P&&P.lean!=null?d(R.lean,P.lean,' kg'):''}`);if(E.circ&&E.circ.waist)L.push(`Cintura: ${fz(E.circ.waist)} cm`);
+  return`Olá, ${firstName(name)}! Resumo da sua avaliação física de ${isoToBR(E.date)}:\n${L.map(x=>'• '+x).join('\n')}\n\nO detalhe completo está no app, na aba Avaliação.`}
+function anamSaude(a,k,uid,c){const Q=anamQ(c),A=Q&&Q.answers||{},H=a.health||{};
+  let h=`<h3>Dados básicos</h3><div class="card"><div class="grid2"><label class="f" style="margin-top:0"><span>Sexo</span>${sel('',[['','—'],['M','Masculino'],['F','Feminino']],k.sex||A.sex||'','id="anSex"')}</label><label class="f" style="margin-top:0"><span>Nascimento</span><input id="anBirth" data-mask="date" inputmode="numeric" placeholder="DD/MM/AAAA" value="${isoToBR(k.birth||A.birth||'')}"></label></div><button class="btn block" data-act="anSaveBasic" data-uid="${uid||''}" style="margin-top:10px">Salvar dados básicos</button><div class="mu xs" style="margin-top:6px">Usados nos cálculos.${!k.sex&&A.sex||!k.birth&&A.birth?' Preenchidos com o questionário; toque em salvar para usar.':''}</div></div>`;
+  const u=!c.self&&USERS&&USERS.list&&USERS.list.find(x=>x.id===c.uid),ph=u&&u.info&&u.info.phone;
+  const ask=ph?`<button class="btn" data-act="openWa" data-u="${esc(waURL(ph,msgAnam(c.name)))}">Pedir atualização</button>`:'';
+  if(Q){const AVQ=(window.AV&&AV.QS)||[],lb=key=>{const q=AVQ.find(x=>x.k===key);return q?q.l.replace(/\s*\(opcional\)/,''):key},ol=(key,v)=>{const q=AVQ.find(x=>x.k===key);const o=q&&q.opts&&q.opts.find(x=>String(x[0])===String(v));return o?o[1]:v};
+    h+=`<h3>Saúde</h3><p class="mu sm" style="margin:-4px 0 6px">Respostas do questionário de <b>${new Date(Q.created_at).toLocaleDateString('pt-BR')}</b>. Não é preciso preencher de novo.</p>`;
+    const yes=(A.parq||[]).map((x,i)=>x===true?i:-1).filter(i=>i>=0);
+    if(yes.length)h+=`<div class="sug down" style="margin:0 0 10px"><b>PAR-Q: ${yes.length} resposta${yes.length===1?'':'s'} "Sim"</b>${yes.map(i=>`<div class="xs" style="margin-top:4px">${i+1}. ${esc(PARQ[i])}</div>`).join('')}</div>`;
+    else if(Array.isArray(A.parq))h+=`<div class="mu sm" style="margin:0 0 10px">PAR-Q: todas as respostas "Não".</div>`;
+    h+=`<div class="card" style="padding:4px 14px">${['injuries','conditions','meds','allergies','goal','train_days'].filter(x=>A[x]!=null&&A[x]!=='').map((x,i)=>`<div style="padding:10px 0;${i?'border-top:1px solid var(--s3)':''}"><div class="mu xs">${esc(lb(x))}</div><div class="sm">${esc(String(ol(x,A[x])))}</div></div>`).join('')||'<div class="mu sm" style="padding:10px 0">Sem respostas de saúde.</div>'}</div>
+      <div class="grid2"><button class="btn" data-act="avOpenDet" data-id="${Q.id}" data-uid="${Q.user_id}">Ver questionário</button>${ask||'<span></span>'}</div>`}
+  else{h+=`<h3>Saúde</h3><div class="card"><p class="sm" style="margin-top:0">${c.self?'Você ainda não respondeu o questionário.':'O aluno ainda não respondeu o questionário.'} As informações de saúde (PAR-Q, lesões, doenças e remédios) vêm de lá.</p>${c.self?'<button class="btn pri block" data-act="avNew">Responder questionário</button>':ask||'<p class="mu xs">Cadastre o WhatsApp do aluno para pedir pelo app.</p>'}</div>`;
+    const old=[['obj','Objetivo'],['act','Atividade física'],['cond','Doenças / condições'],['inj','Lesões'],['surg','Cirurgias'],['meds','Medicamentos'],['smoke','Tabagismo / álcool'],['notes','Observações']].filter(([f])=>H[f]);
+    if(old.length||(H.parq||[]).some(x=>x!=null))h+=`<h3>Anotações anteriores</h3><div class="card" style="padding:4px 14px">${(H.parq||[]).some(x=>x===true)?'<div class="sm" style="padding:10px 0;color:var(--warn)">PAR-Q com resposta "Sim"</div>':''}${old.map(([f,l],i)=>`<div style="padding:10px 0;border-top:1px solid var(--s3)"><div class="mu xs">${l}</div><div class="sm">${esc(H[f])}</div></div>`).join('')}</div><p class="mu xs">Registradas na versão anterior do app.</p>`}
+  return h}
 function anamHealthForm(a,k,uid){const H=a.health;
   let h=`<h3>Dados básicos</h3><div class="card"><div class="grid2"><label class="f" style="margin-top:0"><span>Sexo</span>${sel('',[['','—'],['M','Masculino'],['F','Feminino']],k.sex,'id="anSex"')}</label><label class="f" style="margin-top:0"><span>Nascimento</span><input id="anBirth" data-mask="date" inputmode="numeric" placeholder="DD/MM/AAAA" value="${isoToBR(k.birth)}"></label></div><div class="mu xs" style="margin-top:6px">Usados nos cálculos. Se já estiverem no Perfil corporal (Perfil), prevalecem os de lá.</div></div>`;
   h+=`<h3>Prontidão para atividade física (PAR-Q)</h3><div class="card" style="padding:4px 14px">${PARQ.map((q,i)=>`<div style="padding:9px 0;border-top:${i?'1px solid var(--s3)':'0'}"><div class="sm">${i+1}. ${q}</div><div class="row" style="gap:8px;margin-top:6px">${[['1','Sim'],['0','Não']].map(([v,l])=>`<label class="chip" style="display:inline-flex;gap:6px;align-items:center"><input type="radio" name="pq${i}" value="${v}" ${H.parq[i]===(v==='1')?'checked':''}> ${l}</label>`).join('')}</div></div>`).join('')}</div>`;
@@ -901,6 +922,7 @@ Object.assign(ACT,{
   anOpenUser:d=>{const u=USERS.list.find(x=>x.id===d.id);ANM_EDIT=null;openAnamFor(u)},
   anTab:d=>{ANM_TAB=d.t;ANM_EDIT=null;render();scrollTo(0,0)},
   anEdit:d=>{ANM_TAB='aval';ANM_EDIT=d.id;render();scrollTo(0,0)},
+  anSaveBasic:d=>{const c=anamCtx(d.uid);const a=anamOf(c.lib);const b=$('#anBirth').value.trim(),bi=b?brToISO(b):'';if(b&&!bi){toast('Data de nascimento inválida (DD/MM/AAAA)');return}a.sex=$('#anSex').value;a.birth=bi||'';anamSave(c);if(c.self)toast('Salvo');render()},
   anSaveHealth:d=>{const c=anamCtx(d.uid);const a=anamOf(c.lib),H=a.health;
     const b=$('#anBirth').value.trim(),bi=b?brToISO(b):'';if(b&&!bi){toast('Data de nascimento inválida (DD/MM/AAAA)');return}
     a.sex=$('#anSex').value;a.birth=bi||'';H.parq=PARQ.map((_,i)=>{const r=document.querySelector(`input[name="pq${i}"]:checked`);return r?r.value==='1':null});
@@ -1109,7 +1131,7 @@ VIEWS.montar=function(prm){const uid=prm.uid||'';if(!WZ||WZ.uid!==uid||WZ.aid!==
 function firstSteps(){const m=window.AV&&AV.mine?AV.mine():null,d1=!!(m&&m.list&&m.list.length);
   const it=(n,t,d,st,btn)=>`<div class="fs-i ${st}"><span class="fs-n">${st==='done'?'✓':n}</span><div class="sp"><b>${t}</b><div class="mu sm">${d}</div>${btn||''}</div></div>`;
   return`<div class="card"><div class="row"><b class="sp">Seus primeiros passos</b><span class="ac sm b">${d1?1:0} de 3</span></div>
-    ${it(1,'Responder a avaliação',d1?'Pronto! O resultado fica na aba Avaliação.':'Saúde, hábitos e objetivo. Leva uns 8 minutos.',d1?'done':'now',d1?'':'<button class="btn block" data-act="avNew" style="margin-top:8px">Responder agora</button>')}
+    ${it(1,'Responder a avaliação',d1?'Pronto! O resultado fica na aba Avaliação.':'Saúde, hábitos e objetivo. Leva uns 5 minutos.',d1?'done':'now',d1?'':'<button class="btn block" data-act="avNew" style="margin-top:8px">Responder agora</button>')}
     ${it(2,'Montar meu treino','3 perguntas rápidas: objetivo, dias por semana e onde você treina.',d1?'now':'next','<button class="btn pri block" data-act="go" data-v="montar" style="margin-top:8px">Montar meu treino</button><button class="btn ghost block" data-act="newPlan">Já treino: quero montar sozinho</button>')}
     ${it(3,'Fazer o primeiro treino','O app mostra cada exercício, as séries e conta o descanso para você.','next')}</div>
     ${ME.role!=='master'?'<div class="banner">ℹ️ Prefere que seu treinador monte? Ele monta pela conta dele e o treino aparece aqui sozinho.</div>':''}`}
@@ -1128,14 +1150,28 @@ VIEWS.treinos=function(){const p=myActive();
     <div class="grid2"><button class="btn" data-act="addSess" data-pid="${p.id}">+ Adicionar treino</button><button class="btn" data-act="go" data-v="planos">Planos de treino</button></div>
     <div style="height:8px"></div><button class="btn block" data-act="go" data-v="plan" data-id="${p.id}">⚙️ Configurar plano${ADV()?' (fases e cargas)':''}</button>`;
   return h};
+function avTile(l,v,s){return`<div><span>${l}</span><b>${v}</b>${s?`<span>${s}</span>`:''}</div>`}
+function avDelta(a,b,inv,u){if(a==null||b==null)return'';const d=r1(a-b);if(!d)return'<span class="mu">igual</span>';const good=inv?d<0:d>0;return`<b style="font-size:12px;color:${good?'var(--ok)':'var(--warn)'}">${d>0?'+':'−'}${fz(Math.abs(d))}${u||''}</b>`}
+const IC_Q='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 10h6M9 14h6M9 18h3"/></svg>',IC_F='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/></svg>';
 VIEWS.avaliacao=function(){const isM=ME.role==='master';
-  let h=hdr('Avaliação',isM&&AVT==='rec'?'Avaliações de todos os alunos':'Seu questionário e sua avaliação física',false,syncBadge());
+  let h=hdr('Avaliação',isM&&AVT==='rec'?'Avaliações de todos os alunos':'Medidas, composição corporal e questionário',false,syncBadge());
   if(isM)h+=`<div class="seg" style="margin-bottom:10px">${[['mine','Minhas'],['rec','Alunos']].map(([k,l])=>`<button class="${AVT===k?'on':''}" data-act="avTab" data-t="${k}">${l}</button>`).join('')}</div>`;
   if(isM&&AVT==='rec')return h+(window.AV&&VIEWS.avall?VIEWS.avall({embed:true}):'');
-  const a=anamOf(S.lib),ev=(a.evals||[]).slice().sort((x,y)=>(y.date||'').localeCompare(x.date||'')),L=ev[0];
-  h+=`<h3>Avaliação física</h3><div class="card">${L?`<div class="row"><div class="sp"><b>Última medição · ${esc(dshort?dshort(L.date):L.date)}</b><div class="mu sm">${ev.length} medição${ev.length===1?'':'ões'} registrada${ev.length===1?'':'s'}</div></div></div>`:`<div class="mu sm">${isM?'Nenhuma medição ainda.':'Seu treinador registra aqui as medidas, dobras cutâneas e bioimpedância.'}</div>`}
-    ${L||isM?`<div style="height:8px"></div><button class="btn block" data-act="anOpen">${L?'Ver avaliação física':'+ Registrar medição'}</button>`:''}</div>`;
-  h+=`<h3>Questionário</h3>`+(window.AV&&VIEWS.aval?VIEWS.aval({embed:true}):'');
+  const c=anamCtx(),a=anamOf(S.lib),k=anamBasics(c,a),ev=(a.evals||[]).slice().sort((x,y)=>(y.date||'').localeCompare(x.date||'')),L=ev[0],P=ev[1];
+  const m=window.AV&&AV.mine?AV.mine():null,Q=m&&m.list&&m.list[0];
+  if(!L&&!Q&&m&&!m.loading)h+=`<div class="card hero"><h2>Comece pela sua avaliação</h2><p class="mu sm">Medidas, objetivo, saúde e hábitos. São 4 etapas e leva uns 5 minutos. O resultado aparece aqui.</p><button class="btn pri block big" data-act="avNew">Fazer minha avaliação</button></div>`;
+  if(L){const R=evalCalc(L,k),RP=P?evalCalc(P,k):null,W=L.circ&&+L.circ.waist||null,WP=P&&P.circ&&+P.circ.waist||null;
+    h+=`<div class="card"><div class="row" style="align-items:flex-end;margin-bottom:8px"><div class="sp"><div class="av-eyb" style="margin:0">Última avaliação física</div><b style="font-size:17px">${pISO(L.date).toLocaleDateString('pt-BR',{day:'numeric',month:'long'})}</b></div>${P?`<span class="mu xs">vs ${isoToBR(P.date).slice(0,5)}</span>`:''}</div>
+      <div class="avt">${avTile('Peso',R.kg?fz(R.kg)+' kg':'—',RP?avDelta(R.kg,RP.kg,true,' kg'):'')}${avTile('% de gordura',R.bf?fz(R.bf.v)+' %':'—',RP&&RP.bf&&R.bf?avDelta(R.bf.v,RP.bf.v,true):'')}${avTile('Massa magra',R.lean!=null?fz(R.lean)+' kg':'—',RP&&RP.lean!=null&&R.lean!=null?avDelta(R.lean,RP.lean,false,' kg'):'')}${avTile('Cintura',W?fz(W)+' cm':'—',W&&WP?avDelta(W,WP,true,' cm'):'')}</div>
+      <button class="lnk" data-act="anOpen">Ver avaliação completa ›</button></div>`}
+  else if(Q||isM)h+=`<div class="card"><div class="av-eyb" style="margin:0 0 4px">Avaliação física</div><p class="mu sm" style="margin:0">${isM?'Nenhuma medição ainda.':'Seu treinador registra aqui as medidas, dobras cutâneas e bioimpedância.'}</p>${isM?'<button class="btn block" data-act="anOpen" style="margin-top:10px">+ Registrar medição</button>':''}</div>`;
+  if(m&&!m.loading){const qd=Q?new Date(Q.created_at).toLocaleDateString('pt-BR').slice(0,5):'';const qa=Q?`data-act="avOpenDet" data-id="${Q.id}" data-uid="${Q.user_id}"`:'data-act="avNew"';
+    h+=`<div class="grid2"><button class="card avc" ${qa}>${IC_Q}<b>Questionário</b><span class="mu xs">${Q?'Respondido em '+qd:'Ainda não respondido'}</span><span class="lnk">${Q?'Ver respostas ›':'Responder ›'}</span></button><button class="card avc" ${Q?qa:'data-act="avNew"'}>${IC_F}<b>Fotos</b><span class="mu xs">${Q?'Frente, costas e lados':'Enviadas após o questionário'}</span><span class="lnk">${Q?'Ver ou enviar ›':'Começar ›'}</span></button></div>`}
+  else if(m&&m.loading)h+='<div class="empty">Carregando…</div>';
+  if(L||Q){const base=L?L.date:Q.created_at.slice(0,10),nx=addDays(base,56);
+    h+=`<div class="card"><div class="row"><div class="sp"><b>Próxima avaliação</b><div class="mu sm">${nx<iso(new Date())?'<span style="color:var(--warn)">Já passou do prazo</span> · ':'Sugerida para '+isoToBR(nx).slice(0,5)+' · '}a cada 8 semanas</div></div><button class="btn smb" data-act="avNew">Atualizar dados</button></div></div>`}
+  if(ev.length)h+=`<h3>Histórico</h3><div class="card" style="padding:4px 14px">${ev.slice(0,3).map(x=>{const r=evalCalc(x,k);return`<div class="row tap" data-act="anOpen" style="padding:9px 0;border-top:1px solid var(--s3)"><span class="sp">${isoToBR(x.date)}</span><span class="mu sm">${[r.kg?fz(r.kg)+' kg':null,r.bf?fz(r.bf.v)+' %':null].filter(Boolean).join(' · ')||'—'}</span></div>`}).join('')}</div>`;
+  if(Q)h+=`<button class="btn ghost block" data-act="avDelAll" style="color:var(--bad);margin-top:8px">Excluir meus dados de avaliação</button>`;
   return h};
 let AVT='mine';
 VIEWS.weights=function(){const B=bodyOf(),w=weightsSorted(B).reverse();let h=hdr('Peso corporal',w.length+' registro(s)',true);
