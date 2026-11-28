@@ -337,3 +337,6 @@ html[data-theme=light] .av:not(.sm){color:#fff}
 .card.avc svg{color:var(--ac2,var(--ac))}.card.avc b{font-size:15px}.card.avc .lnk{padding-top:2px}
 .av-eyb{font-size:12px;font-weight:800;letter-spacing:.06em;color:var(--ac2,var(--ac));text-transform:uppercase}
 .avt.av3{grid-template-columns:repeat(3,minmax(0,1fr))}.avt.av3 b{font-size:18px}
+#printArea{display:none}
+@media print{html,body.printing{background:#fff!important}body.printing>*:not(#printArea){display:none!important}body.printing #printArea{display:block;color:#000;background:#fff;font:12pt/1.4 Arial,sans-serif;padding:0}
+#printArea h1{font-size:18pt;margin:0 0 4px}#printArea h2{font-size:13pt;margin:14px 0 4px;border-bottom:1px solid #999;page-break-after:avoid}#printArea h3{font-size:11pt;margin:8px 0 2px}#printArea ul{margin:0 0 4px 18px;padding:0}#printArea .subs{font-size:10pt;color:#333}#printArea .disc{font-size:9pt;color:#555;margin-top:16px}}
