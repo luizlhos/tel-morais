@@ -32,7 +32,7 @@
     'Algum médico já disse que você só deve fazer atividade física com supervisão médica?',
   ];
   const Q = (k, l, t, o) => Object.assign({ k, l, t }, o || {});
-  // v2: 4 etapas e 30 perguntas (sairam alimentacao detalhada, tipo de trabalho e habitos opcionais; ver OLD_QS)
+  // v3: 5 etapas e 44 perguntas; perguntas repetidas foram unidas (ver OLD_QS)
   const SECTIONS = [
     { t: 'Você e medidas', qs: [
       Q('whatsapp', 'WhatsApp (com DDD)', 'tel', { req: 1, ph: '(11) 99999-0000' }),
@@ -50,7 +50,9 @@
     ] },
     { t: 'Objetivo e rotina', qs: [
       Q('goal', 'Qual é o seu objetivo principal?', 'sel', { req: 1, opts: [['emagrecimento', 'Emagrecimento'], ['hipertrofia', 'Ganho de massa muscular'], ['recomposicao', 'Recomposição corporal'], ['condicionamento', 'Condicionamento físico'], ['saude', 'Saúde e bem-estar'], ['outro', 'Outro (conte nas observações)']] }),
+      Q('weight_change', 'Seu peso mudou nos últimos 6 meses? (opcional)', 'sel', { opts: [['nao', 'Não mudou'], ['ganhou', 'Ganhei peso'], ['perdeu', 'Perdi peso'], ['oscila', 'Sobe e desce']] }),
       Q('activity', 'Nível de atividade no dia a dia', 'radio', { req: 1, opts: [['1.2', 'Sedentário', 'Pouco ou nenhum exercício'], ['1.375', 'Leve', '1 a 3 dias por semana'], ['1.55', 'Moderado', '3 a 5 dias por semana'], ['1.725', 'Ativo', '6 a 7 dias por semana'], ['1.9', 'Muito ativo', 'Treino intenso, 2x ao dia']] }),
+      Q('work_type', 'Como é o seu trabalho? (opcional)', 'sel', { opts: [['sedentario', 'Sentado a maior parte do tempo'], ['em_pe', 'Em pé / andando'], ['ativo', 'Esforço físico'], ['turnos', 'Turnos / horários variáveis']] }),
       Q('train_hist', 'Você treina atualmente? Conte seu histórico de treino', 'area', { req: 1, max: 600, ph: 'Ex.: musculação 4x por semana há 1 ano; caminhada nos outros dias. Ou: nunca treinei.' }),
       Q('train_days', 'Quantos dias por semana você consegue treinar?', 'sel', { req: 1, int: 1, opts: [0, 1, 2, 3, 4, 5, 6, 7].map(n => [String(n), String(n)]) }),
       Q('train_place', 'Onde você treina (ou pretende treinar)?', 'sel', { opts: [['academia', 'Academia'], ['casa', 'Em casa'], ['ar_livre', 'Ao ar livre'], ['box', 'Box de CrossFit'], ['outro', 'Outro']] }),
@@ -62,12 +64,25 @@
       Q('meds', 'Usa medicamentos ou suplementos?', 'area', { req: 1, max: 600, ph: 'Nome, dose e frequência, se houver. Ou: nenhum.' }),
       Q('allergies', 'Você tem alergias ou intolerâncias alimentares?', 'area', { req: 1, max: 400, ph: 'Ex.: lactose, glúten, frutos do mar, nenhuma…' }),
       Q('pregnancy', 'Você está gestante ou amamentando?', 'sel', { opts: [['nao', 'Não'], ['gestante', 'Gestante'], ['lactante', 'Amamentando']], onlyF: 1 }),
+      Q('bowel', 'Funcionamento do intestino (opcional)', 'sel', { opts: [['regular', 'Regular'], ['constipacao', 'Prisão de ventre'], ['diarreia', 'Tendência a diarreia'], ['irregular', 'Irregular']] }),
+      Q('smoker', 'Tabagismo (opcional)', 'sel', { opts: [['nao', 'Não fumo'], ['sim', 'Fumo'], ['ex', 'Ex-fumante']] }),
+      Q('alcohol', 'Consumo de álcool (opcional)', 'sel', { opts: [['nunca', 'Não bebo'], ['social', 'Socialmente'], ['semanal', 'Toda semana'], ['diario', 'Quase todo dia']] }),
+    ] },
+    { t: 'Alimentação', qs: [
+      Q('diet_type', 'Como é a sua alimentação?', 'sel', { req: 1, opts: [['tudo', 'Como de tudo'], ['sem_carne_vermelha', 'Sem carne vermelha'], ['vegetariano', 'Vegetariano(a)'], ['vegano', 'Vegano(a)'], ['outra', 'Outra restrição (conte nas observações)']] }),
+      Q('food_avoid', 'Alimentos que você não come ou não gosta (opcional)', 'area', { max: 300, ph: 'Ex.: fígado, beterraba, peixe…' }),
+      Q('food_likes', 'Alimentos que você gosta e quer no plano (opcional)', 'area', { max: 400, ph: 'Ex.: cuscuz, macaxeira, ovo, frutas…' }),
+      Q('meals', 'Quantas refeições você faz por dia?', 'sel', { req: 1, int: 1, opts: [1, 2, 3, 4, 5, 6, 7, 8].map(n => [String(n), n === 8 ? '8 ou mais' : String(n)]) }),
+      Q('meal_times', 'Em quais horários você costuma comer? (opcional)', 'area', { max: 300, ph: 'Ex.: 8h café, 12h almoço, 16h lanche, 20h jantar' }),
+      Q('hunger', 'Em que horário sente mais fome? (opcional)', 'sel', { opts: [['manha', 'Manhã'], ['tarde', 'Tarde'], ['noite', 'Noite'], ['madrugada', 'Madrugada'], ['igual', 'Igual o dia todo']] }),
+      Q('prep', 'Quem prepara a maior parte das suas refeições? (opcional)', 'sel', { opts: [['eu', 'Eu mesmo(a)'], ['outra', 'Outra pessoa da casa'], ['pronta', 'Compro pronta, delivery ou restaurante']] }),
+      Q('cook_time', 'Quanto tempo você tem para preparar as refeições? (opcional)', 'sel', { opts: [['15', 'Até 15 minutos'], ['30', '15 a 30 minutos'], ['mais', 'Mais de 30 minutos']] }),
+      Q('budget', 'Orçamento para a alimentação (opcional)', 'sel', { opts: [['economico', 'Econômico'], ['medio', 'Médio'], ['livre', 'Sem restrição']] }),
+      Q('water', 'Quantos litros de água você bebe por dia?', 'num', { req: 1, u: 'L', ph: '1,8', min: 0, max: 10 }),
+      Q('prev_diets', 'Já fez dietas antes? Como foi? (opcional)', 'area', { max: 500 }),
+      Q('difficulty', 'Qual a sua maior dificuldade com a alimentação? (opcional)', 'area', { max: 400, ph: 'Ex.: beliscar à noite, falta de tempo, doces, fim de semana…' }),
     ] },
     { t: 'Hábitos e compromisso', qs: [
-      Q('diet_restr', 'Você tem alguma restrição alimentar?', 'area', { req: 1, max: 400, ph: 'Ex.: vegetariana, sem carne vermelha, sem açúcar, nenhuma…' }),
-      Q('food_avoid', 'Alimentos que você não come (opcional)', 'area', { max: 300, ph: 'Ex.: fígado, beterraba, peixe…' }),
-      Q('meals', 'Quantas refeições você faz por dia?', 'sel', { req: 1, int: 1, opts: [1, 2, 3, 4, 5, 6, 7, 8].map(n => [String(n), n === 8 ? '8 ou mais' : String(n)]) }),
-      Q('water', 'Quantos litros de água você bebe por dia?', 'num', { req: 1, u: 'L', ph: '1,8', min: 0, max: 10 }),
       Q('sleep_h', 'Quantas horas você dorme por noite?', 'num', { req: 1, u: 'h', ph: '7', min: 2, max: 14 }),
       Q('sleep_q', 'Como é a qualidade do seu sono?', 'sel', { req: 1, opts: [['1', '1 · Muito ruim'], ['2', '2 · Ruim'], ['3', '3 · Regular'], ['4', '4 · Boa'], ['5', '5 · Ótima']] }),
       Q('stress', 'Nível de estresse no dia a dia (opcional)', 'sel', { opts: [['1', '1 · Muito baixo'], ['2', '2 · Baixo'], ['3', '3 · Médio'], ['4', '4 · Alto'], ['5', '5 · Muito alto']] }),
@@ -75,18 +90,12 @@
       Q('notes', 'Algo mais que precisamos saber? (opcional)', 'area', { max: 1000, ph: 'Preferências, horários, dificuldades, metas com prazo…' }),
     ] },
   ];
-  // perguntas que saíram na v2: só para mostrar respostas antigas
+  // perguntas antigas que foram unidas a outras: só para mostrar respostas antigas
   const OLD_QS = [
-      Q('work_type', 'Como é o seu trabalho?', 'sel', { opts: [['sedentario', 'Sentado a maior parte do tempo'], ['em_pe', 'Em pé / andando'], ['ativo', 'Esforço físico'], ['turnos', 'Turnos / horários variáveis']] }),
-      Q('meal_times', 'Em quais horários você costuma comer? (opcional)', 'area', { max: 300, ph: 'Ex.: 8h café, 12h almoço, 16h lanche, 20h jantar' }),
-      Q('eats_out', 'Com que frequência come fora de casa? (opcional)', 'sel', { opts: [['raramente', 'Raramente'], ['1a2', '1 a 2 vezes por semana'], ['3a5', '3 a 5 vezes por semana'], ['todos', 'Quase todos os dias']] }),
-      Q('food_likes', 'Alimentos que você gosta e quer no plano (opcional)', 'area', { max: 400 }),
-      Q('food_dislikes', 'Alimentos que você não come ou não gosta (opcional)', 'area', { max: 400 }),
-      Q('prev_diets', 'Já fez dietas antes? Como foi? (opcional)', 'area', { max: 500 }),
-      Q('alcohol', 'Consumo de álcool (opcional)', 'sel', { opts: [['nunca', 'Não bebo'], ['social', 'Socialmente'], ['semanal', 'Toda semana'], ['diario', 'Quase todo dia']] }),
-      Q('smoker', 'Tabagismo (opcional)', 'sel', { opts: [['nao', 'Não fumo'], ['sim', 'Fumo'], ['ex', 'Ex-fumante']] }),
-      Q('tired', 'Você acorda cansado(a)? (opcional)', 'sel', { opts: [['nao', 'Não'], ['as_vezes', 'Às vezes'], ['sempre', 'Quase sempre']] }),
-      Q('bowel', 'Funcionamento do intestino (opcional)', 'sel', { opts: [['regular', 'Regular'], ['constipacao', 'Prisão de ventre'], ['diarreia', 'Tendência a diarreia'], ['irregular', 'Irregular']] }),
+      Q('diet_restr', 'Você tem alguma restrição alimentar?', 'area', { max: 400 }),
+      Q('food_dislikes', 'Alimentos que você não come ou não gosta', 'area', { max: 400 }),
+      Q('eats_out', 'Com que frequência come fora de casa?', 'sel', { opts: [['raramente', 'Raramente'], ['1a2', '1 a 2 vezes por semana'], ['3a5', '3 a 5 vezes por semana'], ['todos', 'Quase todos os dias']] }),
+      Q('tired', 'Você acorda cansado(a)?', 'sel', { opts: [['nao', 'Não'], ['as_vezes', 'Às vezes'], ['sempre', 'Quase sempre']] }),
   ];
   const QS = SECTIONS.flatMap(s => s.qs);
   const QMAP = Object.fromEntries(QS.map(q => [q.k, q]));
@@ -554,7 +563,7 @@ html[data-theme=light] .av-q{box-shadow:0 1px 2px rgba(16,24,40,.06)}
     return h;
   }
 
-  const SUMMARY = { 'Você e medidas': ['weight', 'height'], 'Objetivo e rotina': ['goal', 'train_days', 'train_place'], 'Saúde': ['injuries'], 'Hábitos e compromisso': ['meals', 'stress', 'commit'] };
+  const SUMMARY = { 'Você e medidas': ['weight', 'height'], 'Objetivo e rotina': ['goal', 'train_days', 'train_place'], 'Saúde': ['injuries'], 'Alimentação': ['diet_type', 'meals'], 'Hábitos e compromisso': ['sleep_h', 'stress', 'commit'] };
   function fmtAns(q, v) {
     if (q.t === 'parq') return PARQ.map((t, i) => `<div class="xs" style="margin-top:4px">${i + 1}. ${esc(t)} — <b style="color:${v[i] ? 'var(--warn)' : 'var(--ok)'}">${v[i] ? 'Sim' : 'Não'}</b></div>`).join('');
     if (q.t === 'sel' || q.t === 'radio' || q.t === 'radio2') return esc(optLabel(q, v));
