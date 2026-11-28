@@ -1,6 +1,6 @@
 {
- "name": "Tel Morais v2 (teste)",
- "short_name": "Tel v2",
+ "name": "Tel Morais 1.9.1 (anterior)",
+ "short_name": "Tel 1.9.1",
  "start_url": "./",
  "scope": "./",
  "display": "standalone",
