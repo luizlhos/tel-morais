@@ -37,6 +37,7 @@ export const SPEC: Record<string, Rule> = {
   allergies: { t: "str", max: 400, req: true },
   pregnancy: { t: "enum", v: ["nao", "gestante", "lactante"] }, // obrigatória só se sex = F (regra abaixo)
   diet_restr: { t: "str", max: 400, req: true },
+  food_avoid: { t: "str", max: 300 },
   meals: { t: "int", min: 1, max: 8, req: true },
   water: { t: "num", min: 0, max: 10, req: true },
   sleep_h: { t: "num", min: 2, max: 14, req: true },

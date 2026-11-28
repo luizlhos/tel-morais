@@ -65,6 +65,7 @@
     ] },
     { t: 'Hábitos e compromisso', qs: [
       Q('diet_restr', 'Você tem alguma restrição alimentar?', 'area', { req: 1, max: 400, ph: 'Ex.: vegetariana, sem carne vermelha, sem açúcar, nenhuma…' }),
+      Q('food_avoid', 'Alimentos que você não come (opcional)', 'area', { max: 300, ph: 'Ex.: fígado, beterraba, peixe…' }),
       Q('meals', 'Quantas refeições você faz por dia?', 'sel', { req: 1, int: 1, opts: [1, 2, 3, 4, 5, 6, 7, 8].map(n => [String(n), n === 8 ? '8 ou mais' : String(n)]) }),
       Q('water', 'Quantos litros de água você bebe por dia?', 'num', { req: 1, u: 'L', ph: '1,8', min: 0, max: 10 }),
       Q('sleep_h', 'Quantas horas você dorme por noite?', 'num', { req: 1, u: 'h', ph: '7', min: 2, max: 14 }),
