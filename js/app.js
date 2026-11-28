@@ -1,4 +1,4 @@
-const APP_VERSION='2.1.2';
+const APP_VERSION='2.1.3';
 const EXDIR='exercicios/';
 /* ---------- tema (preferência do aparelho) ---------- */
 const THEME_KEY='telm.theme';const MQ_DARK=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
@@ -166,7 +166,9 @@ function elapsedMs(A){return Math.max(0,(A.pausedAt||Date.now())-A.startedAt-(A.
 function load(){try{const r=localStorage.getItem(KEY);if(r){S=JSON.parse(r);migrate();if(restoreActive())dirty=true;return}}catch(e){console.warn(e)}S=defaultState();baseHashes();if(restoreActive())dirty=true}
 let saveT,dirty=false;
 function save(){dirty=true;backupActive();clearTimeout(saveT);saveT=setTimeout(saveNow,120)}
-function saveNow(force){if(!KEY||!S||(!dirty&&!force))return;backupActive();try{detect();localStorage.setItem(KEY,JSON.stringify(S));dirty=false;syncSoon()}catch(e){toast('Erro ao salvar: '+e.message)}}
+/* Salvamento: no aparelho é imediato e silencioso; a nuvem só é chamada quando há alteração de verdade
+   (no treino, alguns segundos depois de marcar uma série; nas edições sem botão Salvar, logo após a última mudança). */
+function saveNow(force){if(!KEY||!S||(!dirty&&!force))return;backupActive();try{detect();localStorage.setItem(KEY,JSON.stringify(S));dirty=false;if(pending())syncSoon(S.active?4000:2500)}catch(e){toast('Erro ao salvar: '+e.message)}}
 function commit(){dirty=true;saveNow()}
 function reloadFromStorage(){if(!KEY||!S||dirty||S.active)return;try{const r=localStorage.getItem(KEY);if(r){S=JSON.parse(r);migrate();render()}}catch(e){}}
 window.addEventListener('pagehide',()=>saveNow());
@@ -1361,15 +1363,17 @@ async function sync(manual){
     try{const{data:md,error:me}=await SB.from('exercise_media').select('cat_id,video_url,instrucoes');if(!me&&md){MEDIA={};md.forEach(r=>MEDIA[r.cat_id]={v:r.video_url||'',t:r.instrucoes||''});VID.loaded=false;localStorage.setItem('telm.media',JSON.stringify(MEDIA))}}catch(e){}
     if(changed)S.logs.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.startedAt-b.startedAt);
     if(!y.lastSeen||Date.now()-y.lastSeen>10*60e3){SB.from('profiles').update({last_seen_at:new Date().toISOString()}).eq('id',uid).then(()=>{});y.lastSeen=Date.now()}
-    y.lastSync=Date.now();SYNC_ERR=null;dirty=true;saveNow();
+    y.lastSync=Date.now();SYNC_ERR=null;try{localStorage.setItem(KEY,JSON.stringify(S));dirty=false}catch(e){} // grava no aparelho sem disparar outra sincronização
   }catch(e){console.warn('sync',e);SYNC_ERR=friendlyErr(e);if(manual)toast('Não sincronizou: '+SYNC_ERR)}
-  finally{SYNCING=false;if(S&&S.active&&S.logs.some(L=>L.id===S.active.id)){S.active=null;T=null;changed=true}if(changed&&!document.querySelector('input:focus'))render();else refreshBadges();if(RESUMED){RESUMED=false;backupActive();V.tab='hoje';V.stack=[];render();toast('Treino em andamento retomado 💪')}if(manual&&!SYNC_ERR)toast('Sincronizado ✓')}
+  finally{SYNCING=false;if(ME&&ME.active!==false&&S&&pending()&&navigator.onLine)syncSoon(SYNC_ERR?30000:2500); // algo mudou durante o envio, ou falhou: tenta de novo
+    if(S&&S.active&&S.logs.some(L=>L.id===S.active.id)){S.active=null;T=null;changed=true}if(changed&&!document.querySelector('input:focus'))render();else refreshBadges();if(RESUMED){RESUMED=false;backupActive();V.tab='hoje';V.stack=[];render();toast('Treino em andamento retomado 💪')}if(manual&&!SYNC_ERR)toast('Sincronizado ✓')}
 }
 function friendlyErr(e){const m=String(e&&(e.message||e.error_description||e)||'');
   if(/JWT|token|401|session/i.test(m))return'sessão expirada — saia e entre novamente';if(/Failed to fetch|NetworkError|network/i.test(m))return'sem conexão com o servidor';return m.slice(0,140)}
 window.addEventListener('online',()=>sync());window.addEventListener('offline',refreshBadges);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync()});
-setInterval(()=>{if(!document.hidden)sync()},120e3);
+// busca novidades da nuvem a cada 5 min com o app aberto (fora do treino); também ao abrir/voltar ao app e ao tocar no indicador
+setInterval(()=>{if(!document.hidden&&!(S&&S.active))sync()},300e3);
 
 /* ---------- login ---------- */
 function viewLogin(){const last=localStorage.getItem('telm.lastEmail')||'';
